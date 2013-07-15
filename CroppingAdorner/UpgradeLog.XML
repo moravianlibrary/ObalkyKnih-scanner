@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?><?xml-stylesheet type='text/xsl' href='_UpgradeReport_Files/UpgradeReport.xslt'?><UpgradeLog>
+<Properties><Property Name="Solution" Value="CroppingAdorner">
+</Property><Property Name="Solution File" Value="D:\MZK\skenovaci_rozhrani\tests\cropping\CroppingAdorner\CroppingAdorner.sln">
+</Property><Property Name="Date" Value="23. května 2013">
+</Property><Property Name="Time" Value="10:25">
+</Property></Properties><Event ErrorLevel="0" Project="CroppingAdorner" Source="CroppingAdorner\CroppingAdorner.csproj" Description="Project converted successfully">
+</Event><Event ErrorLevel="3" Project="CroppingAdorner" Source="CroppingAdorner\CroppingAdorner.csproj" Description="Converted">
+</Event><Event ErrorLevel="0" Project="CroppingTest" Source="CroppingTest\CroppingTest.csproj" Description="Project converted successfully">
+</Event><Event ErrorLevel="3" Project="CroppingTest" Source="CroppingTest\CroppingTest.csproj" Description="Converted">
+</Event><Event ErrorLevel="0" Project="" Source="CroppingAdorner.sln" Description="Solution converted successfully">
+</Event><Event ErrorLevel="3" Project="" Source="CroppingAdorner.sln" Description="Converted">
+</Event><Event ErrorLevel="0" Project="CroppingAdorner" Source="CroppingAdorner\CroppingAdorner.csproj" Description="Scan complete: Upgrade not required for project files.">
+</Event><Event ErrorLevel="0" Project="CroppingTest" Source="CroppingTest\CroppingTest.csproj" Description="Scan complete: Upgrade not required for project files.">
+</Event></UpgradeLog>
