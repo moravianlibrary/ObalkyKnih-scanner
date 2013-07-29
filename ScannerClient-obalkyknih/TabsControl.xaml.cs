@@ -21,6 +21,7 @@ using System.Reflection;
 using System.Net;
 using System.Collections.Specialized;
 using System.Xml.Linq;
+using System.Security.Cryptography;
 
 namespace ScannerClient_obalkyknih
 {
@@ -684,7 +685,7 @@ namespace ScannerClient_obalkyknih
                     if (char.IsDigit(issnArray[i]))
                     {
                         int multiplier = 8 - i;
-                        sumIssn += issnArray[i] * multiplier;
+                        sumIssn += (int)char.GetNumericValue(issnArray[i]) * multiplier;
                     }
                     else
                     {
@@ -1225,7 +1226,8 @@ namespace ScannerClient_obalkyknih
             if (string.IsNullOrWhiteSpace(this.authorTextBox.Text)
                 || string.IsNullOrWhiteSpace(this.yearTextBox.Text))
             {
-                var result = MessageBox.Show("Chybí autor nebo rok vydání. Opravdu chcete odeslat obálku bez toho?" + Environment.NewLine + error,
+                var result = MessageBox.Show("Chybí autor nebo rok vydání. Opravdu chcete odeslat obálku bez toho?"
+                    + Environment.NewLine + error,
                 "Chybí základní informace.", MessageBoxButton.YesNo, MessageBoxImage.Warning);
                 if (result != MessageBoxResult.Yes)
                 {
@@ -1247,10 +1249,18 @@ namespace ScannerClient_obalkyknih
             {
                 try
                 {
-                    coverStream = new MemoryStream();
+                    //convert from Bgra32 into RGB24
+                    BitmapSource sourceBmp = selectedCoverImage.Source as BitmapSource;
+                    PixelFormat pixelFormat = sourceBmp.Format;
+                    ColorContext sourceContext = new ColorContext(pixelFormat);
+                    ColorContext destContext = new ColorContext(PixelFormats.Rgb24);
+                    ColorConvertedBitmap convertedBmp = new ColorConvertedBitmap(
+                        sourceBmp, sourceContext, destContext, PixelFormats.Rgb24);
+
                     TiffBitmapEncoder encoderTiff = new TiffBitmapEncoder();
                     encoderTiff.Compression = TiffCompressOption.Lzw;
-                    encoderTiff.Frames.Add(BitmapFrame.Create(selectedCoverImage.Source as BitmapSource));
+                    encoderTiff.Frames.Add(BitmapFrame.Create(convertedBmp));
+                    coverStream = new MemoryStream();
                     encoderTiff.Save(coverStream);
                 }
                 catch(Exception)
@@ -1282,8 +1292,17 @@ namespace ScannerClient_obalkyknih
                     {
                         if (this.confirmTocImagesList.Items[i] is Image)
                         {
-                            encoderTiff.Frames.Add(BitmapFrame.Create(
-                                (this.confirmTocImagesList.Items[i] as Image).Source as BitmapSource));
+                            //convert from Bgra32 into RGB24
+                            BitmapSource sourceBmp = (this.confirmTocImagesList.Items[i] as Image)
+                                .Source as BitmapSource;
+                            PixelFormat pixelFormat = sourceBmp.Format;
+                            ColorContext sourceContext = new ColorContext(pixelFormat);
+                            ColorContext destContext = new ColorContext(PixelFormats.Rgb24);
+                            ColorConvertedBitmap convertedBmp = new ColorConvertedBitmap(
+                                sourceBmp, sourceContext, destContext, PixelFormats.Rgb24);
+
+                            //add frame to multi-frame tiff
+                            encoderTiff.Frames.Add(BitmapFrame.Create(convertedBmp));
                         }
                     }
                     encoderTiff.Save(tocStream);
@@ -1294,10 +1313,15 @@ namespace ScannerClient_obalkyknih
                             "Chybná obálka", MessageBoxButton.OK, MessageBoxImage.Error);
                     return;
                 }
+                //compute SHA1 hash of toc
+                SHA1Managed sha = new SHA1Managed();
+                byte[] checksumBytes = sha.ComputeHash(tocStream);
+                string tocChecksum = BitConverter.ToString(checksumBytes).Replace("-", String.Empty);
+                nvc.Add("toc_sha1hex", tocChecksum);
             }
             else
             {
-                var result = MessageBox.Show("Chybí obsahu. Opravdu chcete odeslat data bez obsahu?",
+                var result = MessageBox.Show("Opravdu chcete odeslat data bez obsahu?",
                 "Chybí obsah", MessageBoxButton.YesNo, MessageBoxImage.Warning);
                 if (result != MessageBoxResult.Yes)
                 {
@@ -1371,7 +1395,7 @@ namespace ScannerClient_obalkyknih
             httpWebRequest.ContentType = "multipart/form-data; boundary=" + boundary;
             httpWebRequest.Method = "POST";
             httpWebRequest.ServicePoint.Expect100Continue = false;
-            httpWebRequest.KeepAlive = true;
+            httpWebRequest.KeepAlive = false;
 
             boundary = "--" + boundary;
 
@@ -1513,7 +1537,18 @@ namespace ScannerClient_obalkyknih
                     if ((e.Error as WebException).Response != null)
                     {
                         HttpWebResponse response = (e.Error as WebException).Response as HttpWebResponse;
-                        message = response.StatusCode + ": " + response.StatusDescription;
+                        if (response.StatusCode == HttpStatusCode.Unauthorized)
+                        {
+                            message = "Chyba autorizace: Přihlašovací údaje nejsou správné.";
+                        }
+                        else if (response.StatusCode == HttpStatusCode.InternalServerError)
+                        {
+                            message = "Chyba na straně serveru: " + response.StatusDescription;
+                        }
+                        else
+                        {
+                            message = response.StatusCode + ": " + response.StatusDescription;
+                        }
                     }
                     else
                     {
@@ -1537,8 +1572,8 @@ namespace ScannerClient_obalkyknih
                 }
                 else
                 {
-                    MessageBox.Show("Odesílání bylo úspěšné, ale vrátilo nečekaný návratový kód: "
-                        + response, "Odesláno", MessageBoxButton.OK, MessageBoxImage.Information);
+                    MessageBox.Show("Server nepotvrdil zpracování dat. Je možné, že data nebyly zpracovány správně."
+                        + response, "Zpracování nepotvrzené", MessageBoxButton.OK, MessageBoxImage.Information);
                 }
             }
         }
