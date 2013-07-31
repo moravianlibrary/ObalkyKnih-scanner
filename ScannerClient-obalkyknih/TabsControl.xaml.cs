@@ -1310,7 +1310,7 @@ namespace ScannerClient_obalkyknih
                 catch (Exception)
                 {
                     MessageBox.Show("Obsah se nepovedlo zkonvertovat, pravděpodobně má špatný formát.",
-                            "Chybná obálka", MessageBoxButton.OK, MessageBoxImage.Error);
+                            "Chybný obsah", MessageBoxButton.OK, MessageBoxImage.Error);
                     return;
                 }
                 //compute SHA1 hash of toc
