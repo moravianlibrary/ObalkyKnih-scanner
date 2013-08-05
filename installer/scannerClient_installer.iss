@@ -1,6 +1,9 @@
+#define FileVersion GetFileVersion('..\ScannerClient-obalkyknih\bin\Release\ObalkyKnih-scanner.exe')
+#define StripVersion(str VerStr) Copy(VerStr, 1, RPos(".", VerStr)-1)
+#define ApplicationVersion StripVersion(StripVersion(FileVersion))
 ;Installer for ObalkyKnih-scannerClient
 [Setup]
-AppVersion=0.1
+AppVersion={#ApplicationVersion}
 OutputBaseFilename=obalkyknih-scanner_setup
 AppPublisher=Moravsk· Zemsk· Knihovna
 AppPublisherURL=http://www.mzk.cz/
@@ -94,6 +97,15 @@ end;
 procedure InitializeWizard();
 var ResultCode:Integer; Version: TWindowsVersion;
 begin
+    {Check previously installed version}
+    if RegKeyExists(HKEY_CURRENT_USER, 'Software\Microsoft\Windows\CurrentVersion\Uninstall\ObalkyKnih-scanner_is1') then
+    begin
+      MsgBox('Nespr·vn˝ typ instalace:' #13#13 
+             'Naöla se p¯edchozÌ instalace programu ObalkyKnih-scanner, kter· m· typ uûivatelsk· instalace.'
+           + ' St·hnÏte uûivatelskou verzi nebo odinstalujte souËasnou verzi a spusùte instalaci znovu.',
+             mbCriticalError, MB_OK);
+      Abort();
+    end;
     GetWindowsVersionEx(Version);
     if((not Version.NTPlatform) or (Version.Major < 5) or 
            ((Version.Major = 5) and (Version.Minor = 0))) then
