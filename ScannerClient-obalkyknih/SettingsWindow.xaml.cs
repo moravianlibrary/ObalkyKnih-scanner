@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Windows;
 using System.Text;
+using SobekCM.Bib_Package.MARC.Parsers;
+using System.Windows.Input;
 
 namespace ScannerClient_obalkyknih
 {
@@ -9,11 +11,20 @@ namespace ScannerClient_obalkyknih
     /// </summary>
     public partial class SettingsWindow : Window
     {
+        // close on escape
+        public static RoutedCommand closeCommand = new RoutedCommand();
 
         public SettingsWindow()
         {
             InitializeComponent();
             LoadSettings();
+
+            // close on Esc
+            CommandBinding cb = new CommandBinding(closeCommand, CloseExecuted, CloseCanExecute);
+            this.CommandBindings.Add(cb);
+            KeyGesture kg = new KeyGesture(Key.Escape);
+            InputBinding ib = new InputBinding(closeCommand, kg);
+            this.InputBindings.Add(ib);
         }
 
         // Loads settings from Settings class and writes them to components
@@ -34,13 +45,17 @@ namespace ScannerClient_obalkyknih
             this.siglaTextBox.Text = Settings.Sigla;
             this.graphicalEditorTextBox.Text = Settings.ExternalImageEditor;
 
-            if (Settings.Z39Encoding == Encoding.UTF8)
+            if (Settings.Z39Encoding == Record_Character_Encoding.MARC)
             {
-                this.z39EncodingComboBox.SelectedIndex = 0;
+                this.z39EncodingComboBox.SelectedIndex = 2;
+            }
+            else if (Settings.Z39Encoding == Record_Character_Encoding.Windows1250)
+            {
+                this.z39EncodingComboBox.SelectedIndex = 1;
             }
             else
             {
-                this.z39EncodingComboBox.SelectedIndex = 1;
+                this.z39EncodingComboBox.SelectedIndex = 0;
             }
         }
 
@@ -89,8 +104,18 @@ namespace ScannerClient_obalkyknih
             Settings.Z39UserName = this.z39UserNameTextBox.Text;
             Settings.Z39Password = this.z39PasswordTextBox.Text;
             Settings.Z39BarcodeField = int.Parse(this.z39BarcodeField.Text);
-            Settings.Z39Encoding = (this.z39EncodingComboBox.SelectedIndex == 0) ? 
-                Encoding.UTF8 : Encoding.GetEncoding("windows-1250");
+            if (this.z39EncodingComboBox.SelectedIndex == 2)
+            {
+                Settings.Z39Encoding = Record_Character_Encoding.MARC;
+            }
+            else if (this.z39EncodingComboBox.SelectedIndex == 1)
+            {
+                Settings.Z39Encoding = Record_Character_Encoding.Windows1250;
+            }
+            else
+            {
+                Settings.Z39Encoding = Record_Character_Encoding.Unicode;
+            }
 
             Settings.XServerUrl = this.xServerUrlTextBox.Text;
             Settings.XServerBase = this.xServerDatabaseTextBox.Text;
@@ -189,6 +214,19 @@ namespace ScannerClient_obalkyknih
             {
                 this.graphicalEditorTextBox.Text = dlg.FileName;
             }
+        }
+
+        // Close on Esc
+        private void CloseCanExecute(object sender, CanExecuteRoutedEventArgs e)
+        {
+            e.CanExecute = true;
+            e.Handled = true;
+        }
+
+        // Close on Esc
+        private void CloseExecuted(object sender, ExecutedRoutedEventArgs e)
+        {
+            this.Close();
         }
     }
 }

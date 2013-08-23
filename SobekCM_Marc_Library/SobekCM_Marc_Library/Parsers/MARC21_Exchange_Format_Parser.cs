@@ -44,6 +44,9 @@ namespace SobekCM.Bib_Package.MARC.Parsers
         /// <summary> Unicode character encoding </summary>
         Unicode,
 
+        /// <summary> CP-1250 character encoding </summary>
+        Windows1250,
+
         /// <summary> Unrecognized character encoding value found  (treated as Unicode) </summary>
         UNRECOGNIZED
     }
@@ -108,13 +111,13 @@ namespace SobekCM.Bib_Package.MARC.Parsers
         /// <summary> Begins parsing from a stream containing MARC21 Electronic format records. </summary>
         /// <param name="Marc21_Stream"> Open stream from which to read Marc21 records </param>
         /// <returns> A built record, or NULL if no records are contained within the file </returns>
-        public MARC_Record Parse( Stream Marc21_Stream )
+        public MARC_Record Parse( Stream Marc21_Stream, Record_Character_Encoding encoding )
         {
             // Create the new reader object
             reader = new BinaryReader(Marc21_Stream);
 
             // Return the first record
-            return parse_next_record();
+            return parse_next_record(encoding);
         }
 
         /// <summary> Begins parsing a new MARC21 Electronic format file. </summary>
@@ -126,7 +129,7 @@ namespace SobekCM.Bib_Package.MARC.Parsers
             reader = new BinaryReader(File.Open(Marc21_File, FileMode.Open));
 
             // Return the first record
-            return parse_next_record();
+            return parse_next_record(Record_Character_Encoding.UNRECOGNIZED);
         }
 
 
@@ -135,7 +138,7 @@ namespace SobekCM.Bib_Package.MARC.Parsers
         public MARC_Record Next()
         {
             if ( reader != null )
-                return parse_next_record();
+                return parse_next_record(Record_Character_Encoding.UNRECOGNIZED);
             return null;
         }
 
@@ -165,7 +168,7 @@ namespace SobekCM.Bib_Package.MARC.Parsers
             get; set; 
         }
 
-        private MARC_Record parse_next_record()
+        private MARC_Record parse_next_record(Record_Character_Encoding encoding)
         {
             // Create the MARC record to return and subfield collection
             MARC_Record thisRecord = new MARC_Record();
@@ -229,16 +232,18 @@ namespace SobekCM.Bib_Package.MARC.Parsers
                 thisRecord.Leader = leaderBuilder.ToString();
 
                 // Verify the type of character encoding used here
-                Record_Character_Encoding encoding = Record_Character_Encoding.UNRECOGNIZED;
-                switch (thisRecord.Leader[9])
+                if (encoding == Record_Character_Encoding.UNRECOGNIZED)
                 {
-                    case ' ':
-                        encoding = Record_Character_Encoding.MARC;
-                        break;
+                    switch (thisRecord.Leader[9])
+                    {
+                        case ' ':
+                            encoding = Record_Character_Encoding.MARC;
+                            break;
 
-                    case 'a':
-                        encoding = Record_Character_Encoding.Unicode;
-                        break;
+                        case 'a':
+                            encoding = Record_Character_Encoding.Unicode;
+                            break;
+                    }
                 }
 
                 // Now, read in all the directory information
@@ -326,6 +331,10 @@ namespace SobekCM.Bib_Package.MARC.Parsers
                         {
                             case Record_Character_Encoding.MARC:
                                 fieldAsString = Convert_Marc_Bytes_To_Unicode_String( thisRecord, fieldAsByteArray);
+                                break;
+
+                            case Record_Character_Encoding.Windows1250:
+                                fieldAsString = Encoding.GetEncoding("Windows-1250").GetString(fieldAsByteArray);
                                 break;
 
                             default:
@@ -2201,7 +2210,7 @@ namespace SobekCM.Bib_Package.MARC.Parsers
         /// <remarks> Required to implement IEnumerable </remarks>
         public bool MoveNext()
         {
-            Current = parse_next_record();
+            Current = parse_next_record(Record_Character_Encoding.UNRECOGNIZED);
             if ((Current == null) || (EOF_Flag))
                 return false;
             return true;

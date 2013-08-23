@@ -47,6 +47,7 @@ namespace DAP.Adorners
 				return _prCropMask.RectInterior;
 			}
 		}
+        public Size CropZone { get; set; }
 		#endregion
 
 		#region Routed Events
@@ -450,16 +451,12 @@ namespace DAP.Adorners
 		#region Public interface
 		public BitmapSource BpsCrop()
 		{
-			Thickness margin = AdornerMargin();
 			Rect rcInterior = _prCropMask.RectInterior;
 
 			Point pxFromSize = UnitsToPx(rcInterior.Width, rcInterior.Height);
 
-			// It appears that CroppedBitmap indexes from the upper left of the margin whereas RenderTargetBitmap renders the
-			// control exclusive of the margin.  Hence our need to take the margins into account here...
-
-			Point pxFromPos = UnitsToPx(rcInterior.Left /*+ margin.Left*/, rcInterior.Top /*+ margin.Top*/);
-			Point pxWhole = UnitsToPx(AdornedElement.RenderSize.Width + margin.Left, AdornedElement.RenderSize.Height + margin.Left);
+			Point pxFromPos = UnitsToPx(rcInterior.Left, rcInterior.Top);
+			Point pxWhole = UnitsToPx(AdornedElement.RenderSize.Width, AdornedElement.RenderSize.Height);
 			pxFromSize.X = Math.Max(Math.Min(pxWhole.X - pxFromPos.X, pxFromSize.X), 0);
 			pxFromSize.Y = Math.Max(Math.Min(pxWhole.Y - pxFromPos.Y, pxFromSize.Y), 0);
 			if (pxFromSize.X == 0 || pxFromSize.Y == 0)
@@ -474,14 +471,42 @@ namespace DAP.Adorners
             double ratioX = bmpSource.PixelWidth / (double) pxWhole.X;
             double ratioY = bmpSource.PixelHeight / (double)pxWhole.Y;
 
-            //multiply each position by ratio of dimensions of original image and rendered image
+            //set CropZone property
+            this.CropZone = new Size((ratioX * pxFromSize.X), (ratioY * pxFromSize.Y));
+            //multiply each position by ratio of dimensions of original image size and rendered image size
             System.Windows.Int32Rect rcFrom = new System.Windows.Int32Rect((int)(ratioX * pxFromPos.X), (int)(ratioY * pxFromPos.Y),
-                (int)(ratioX * pxFromSize.X), (int)(ratioY * pxFromSize.Y));
+                (int)CropZone.Width, (int)CropZone.Height);
 
-			//RenderTargetBitmap rtb = new RenderTargetBitmap(pxWhole.X, pxWhole.Y, s_dpiX, s_dpiY, PixelFormats.Default);
-			//rtb.Render(AdornedElement);
 			return new CroppedBitmap(bmpSource, rcFrom);
 		}
+
+        public BitmapSource BpsCrop(BitmapSource bmpSource)
+        {
+            Rect rcInterior = _prCropMask.RectInterior;
+
+            Point pxFromSize = UnitsToPx(rcInterior.Width, rcInterior.Height);
+
+            Point pxFromPos = UnitsToPx(rcInterior.Left, rcInterior.Top);
+            Point pxWhole = UnitsToPx(AdornedElement.RenderSize.Width, AdornedElement.RenderSize.Height);
+            pxFromSize.X = Math.Max(Math.Min(pxWhole.X - pxFromPos.X, pxFromSize.X), 0);
+            pxFromSize.Y = Math.Max(Math.Min(pxWhole.Y - pxFromPos.Y, pxFromSize.Y), 0);
+            if (pxFromSize.X == 0 || pxFromSize.Y == 0)
+            {
+                return null;
+            }
+
+            //both ratios should be the same, but for safety, we will use two values
+            double ratioX = bmpSource.PixelWidth / (double)pxWhole.X;
+            double ratioY = bmpSource.PixelHeight / (double)pxWhole.Y;
+
+            //set CropZone property
+            this.CropZone = new Size((ratioX * pxFromSize.X), (ratioY * pxFromSize.Y));
+            //multiply each position by ratio of dimensions of original image size and rendered image size
+            System.Windows.Int32Rect rcFrom = new System.Windows.Int32Rect((int)(ratioX * pxFromPos.X), (int)(ratioY * pxFromPos.Y),
+                (int)CropZone.Width, (int)CropZone.Height);
+
+            return new CroppedBitmap(bmpSource, rcFrom);
+        }
 		#endregion
 
 		#region Helper functions

@@ -32,37 +32,46 @@ namespace ScannerClient_obalkyknih
     public partial class TabsControl : UserControl
     {
         #region attributes
-
         #region key binding commands
         RoutedCommand rotateLeftCommand = new RoutedCommand();
         RoutedCommand rotateRightCommand = new RoutedCommand();
         RoutedCommand rotate180Command = new RoutedCommand();
-        RoutedCommand flipVerticalCommand = new RoutedCommand();
         RoutedCommand flipHorizontalCommand = new RoutedCommand();
         RoutedCommand cropCommand = new RoutedCommand();
-        RoutedCommand scanImageCommand = new RoutedCommand();
+        RoutedCommand deskewCommand = new RoutedCommand();
         #endregion
 
         // Barcode of the unit
         private string barcode;
 
-        // Object responsible for cropping of cover images
-        private CroppingAdorner coverCropper;
+        // Backup image for Ctrl+Z (Undo)
+        private KeyValuePair<string, BitmapSource> backupImage = new KeyValuePair<string,BitmapSource>();
 
-        // Object responsible for cropping of toc images
-        private CroppingAdorner tocCropper;
+        private KeyValuePair<string, BitmapSource> redoImage = new KeyValuePair<string, BitmapSource>();
+
+        // Used by sliders, because changing contrast or brightness is irreversible process
+        private KeyValuePair<Guid, BitmapSource> sliderOriginalImage = new KeyValuePair<Guid, BitmapSource>();
+
+        // GUID of Image that is currently selected
+        private Guid selectedImageGuid;
+
+        // GUID that corresponds to cover image
+        private Guid coverGuid;
+
+        // Dictionary containing GUID and file path of all loaded images 
+        private Dictionary<Guid, string> imagesFilePaths = new Dictionary<Guid, string>();
+
+        // Dictionary containing GUID and dimensions of originals of all loaded images
+        private Dictionary<Guid, Size> imagesOriginalSizes = new Dictionary<Guid, Size>();
+
+        // Dictionary containing Guid of TOC image and its thumbnail with wrapping Grid
+        private Dictionary<Guid, Grid> tocThumbnailGridsDictionary = new Dictionary<Guid, Grid>();
+
+        // Object responsible for cropping of images
+        private CroppingAdorner cropper;
 
         // Chosen scanner device
         private Device activeScanner;
-
-        // TOC image that is currently edited
-        private Image selectedTocImageThumbnail;
-
-        // Flag indicating that some image (other than default) was set as selectedCoverImage
-        private bool isSelectedCoverImage = false;
-
-        // Flag indicating that som image (other than default) was set as selectedTocImage
-        private bool isSelectedTocImage = false;
 
         // Background worker for downloading of metadata and cover and toc images
         private BackgroundWorker metadataReceiverBackgroundWorker = new BackgroundWorker();
@@ -80,16 +89,14 @@ namespace ScannerClient_obalkyknih
         private MetadataRetriever metadataRetriever = null;
         #endregion
 
-        /// <summary>
-        /// constructor, creates new TabsControl based on given barcode
-        /// </summary>
+        /// <summary>Constructor, creates new TabsControl based on given barcode</summary>
         /// <param name="barcode">barcode of the unit, that will be processed</param>
         public TabsControl(string barcode)
         {
             this.barcode = barcode;
             InitializeComponent();
             InitializeBackgroundWorkers();
-            metadataReceiverBackgroundWorker.RunWorkerAsync();
+            metadataReceiverBackgroundWorker.RunWorkerAsync(null);
 
             #region key binding commands initialization
             //rotateLeft
@@ -113,16 +120,6 @@ namespace ScannerClient_obalkyknih
             ib = new InputBinding(this.rotate180Command, kg);
             this.InputBindings.Add(ib);
 
-            //flipVertical
-            cb = new CommandBinding(this.flipVerticalCommand, FlipVerticalCommandExecuted, FlipVerticalCommandCanExecute);
-            this.CommandBindings.Add(cb);
-            kg = new KeyGesture(Key.Up, ModifierKeys.Control);
-            ib = new InputBinding(this.flipVerticalCommand, kg);
-            this.InputBindings.Add(ib);
-            kg = new KeyGesture(Key.Down, ModifierKeys.Control);
-            ib = new InputBinding(this.flipVerticalCommand, kg);
-            this.InputBindings.Add(ib);
-
             //flipHorizontal
             cb = new CommandBinding(this.flipHorizontalCommand, FlipHorizontalCommandExecuted, FlipHorizontalCommandCanExecute);
             this.CommandBindings.Add(cb);
@@ -137,11 +134,11 @@ namespace ScannerClient_obalkyknih
             ib = new InputBinding(this.cropCommand, kg);
             this.InputBindings.Add(ib);
 
-            //scanImage
-            cb = new CommandBinding(this.scanImageCommand, ScanImageCommandExecuted, ScanImageCommandCanExecute);
+            //deskew
+            cb = new CommandBinding(this.deskewCommand, DeskewCommandExecuted, DeskewCommandCanExecute);
             this.CommandBindings.Add(cb);
-            kg = new KeyGesture(Key.S, ModifierKeys.Control);
-            ib = new InputBinding(this.scanImageCommand, kg);
+            kg = new KeyGesture(Key.D, ModifierKeys.Control);
+            ib = new InputBinding(this.deskewCommand, kg);
             this.InputBindings.Add(ib);
             #endregion
         }
@@ -158,19 +155,9 @@ namespace ScannerClient_obalkyknih
         private void RotateLeftCommandExecuted(object sender, ExecutedRoutedEventArgs e)
         {
             TabItem currentTab = tabControl.SelectedItem as TabItem;
-            if (currentTab.Equals(this.coverTabItem) && isSelectedCoverImage)
+            if (currentTab.Equals(this.scanningTabItem))
             {
-                ImageTools.RotateImage(this.selectedCoverImage, -90);
-                this.coverImageThumbnail.Source = this.selectedCoverImage.Source; 
-                this.confirmCoverImage.Source = this.selectedCoverImage.Source;
-            }
-            else if (currentTab.Equals(this.tocTabItem) && isSelectedTocImage)
-            {
-                ImageSource oldSource = this.selectedTocImage.Source;
-                ImageTools.RotateImage(this.selectedTocImage, -90);
-                ImageSource newSource = this.selectedTocImage.Source;
-                this.selectedTocImageThumbnail.Source = newSource;
-                SetConfirmationTocNewImageSource(oldSource, newSource);
+                RotateLeft_Clicked(null, null);
             }
         }
 
@@ -184,19 +171,9 @@ namespace ScannerClient_obalkyknih
         private void RotateRightCommandExecuted(object sender, ExecutedRoutedEventArgs e)
         {
             TabItem currentTab = tabControl.SelectedItem as TabItem;
-            if (currentTab.Equals(this.coverTabItem) && isSelectedCoverImage)
+            if (currentTab.Equals(this.scanningTabItem))
             {
-                ImageTools.RotateImage(this.selectedCoverImage, 90);
-                this.coverImageThumbnail.Source = this.selectedCoverImage.Source;
-                this.confirmCoverImage.Source = this.selectedCoverImage.Source;
-            }
-            else if (currentTab.Equals(this.tocTabItem) && isSelectedTocImage)
-            {
-                ImageSource oldSource = this.selectedTocImage.Source;
-                ImageTools.RotateImage(this.selectedTocImage, 90);
-                ImageSource newSource = this.selectedTocImage.Source;
-                this.selectedTocImageThumbnail.Source = newSource;
-                SetConfirmationTocNewImageSource(oldSource, newSource);
+                RotateRight_Clicked(null, null);
             }
         }
 
@@ -210,45 +187,9 @@ namespace ScannerClient_obalkyknih
         private void Rotate180CommandExecuted(object sender, ExecutedRoutedEventArgs e)
         {
             TabItem currentTab = tabControl.SelectedItem as TabItem;
-            if (currentTab.Equals(this.coverTabItem) && isSelectedCoverImage)
+            if (currentTab.Equals(this.scanningTabItem))
             {
-                ImageTools.RotateImage(this.selectedCoverImage, 180);
-                this.coverImageThumbnail.Source = this.selectedCoverImage.Source;
-                this.confirmCoverImage.Source = this.selectedCoverImage.Source;
-            }
-            else if (currentTab.Equals(this.tocTabItem) && isSelectedTocImage)
-            {
-                ImageSource oldSource = this.selectedTocImage.Source;
-                ImageTools.RotateImage(this.selectedTocImage, 180);
-                ImageSource newSource = this.selectedTocImage.Source;
-                this.selectedTocImageThumbnail.Source = newSource;
-                SetConfirmationTocNewImageSource(oldSource, newSource);
-            }
-        }
-
-        //flipVertical
-        private void FlipVerticalCommandCanExecute(object sender, CanExecuteRoutedEventArgs e)
-        {
-            e.CanExecute = true;
-            e.Handled = true;
-        }
-
-        private void FlipVerticalCommandExecuted(object sender, ExecutedRoutedEventArgs e)
-        {
-            TabItem currentTab = tabControl.SelectedItem as TabItem;
-            if (currentTab.Equals(this.coverTabItem) && isSelectedCoverImage)
-            {
-                ImageTools.FlipVerticalImage(this.selectedCoverImage);
-                this.coverImageThumbnail.Source = this.selectedCoverImage.Source;
-                this.confirmCoverImage.Source = this.selectedCoverImage.Source;
-            }
-            else if (currentTab.Equals(this.tocTabItem) && isSelectedTocImage)
-            {
-                ImageSource oldSource = this.selectedTocImage.Source;
-                ImageTools.FlipVerticalImage(this.selectedTocImage);
-                ImageSource newSource = this.selectedTocImage.Source;
-                this.selectedTocImageThumbnail.Source = newSource;
-                SetConfirmationTocNewImageSource(oldSource, newSource);
+                Rotate180_Clicked(null, null);
             }
         }
 
@@ -262,19 +203,9 @@ namespace ScannerClient_obalkyknih
         private void FlipHorizontalCommandExecuted(object sender, ExecutedRoutedEventArgs e)
         {
             TabItem currentTab = tabControl.SelectedItem as TabItem;
-            if (currentTab.Equals(this.coverTabItem) && isSelectedCoverImage)
+            if (currentTab.Equals(this.scanningTabItem))
             {
-                ImageTools.FlipHorizontalImage(this.selectedCoverImage);
-                this.coverImageThumbnail.Source = this.selectedCoverImage.Source;
-                this.confirmCoverImage.Source = this.selectedCoverImage.Source;
-            }
-            else if (currentTab.Equals(this.tocTabItem) && isSelectedTocImage)
-            {
-                ImageSource oldSource = this.selectedTocImage.Source;
-                ImageTools.FlipHorizontalImage(this.selectedTocImage);
-                ImageSource newSource = this.selectedTocImage.Source;
-                this.selectedTocImageThumbnail.Source = newSource;
-                SetConfirmationTocNewImageSource(oldSource, newSource);
+                Flip_Clicked(null, null);
             }
         }
 
@@ -288,39 +219,25 @@ namespace ScannerClient_obalkyknih
         private void CropCommandExecuted(object sender, ExecutedRoutedEventArgs e)
         {
             TabItem currentTab = tabControl.SelectedItem as TabItem;
-            if (currentTab.Equals(this.coverTabItem) && isSelectedCoverImage)
+            if (currentTab.Equals(this.scanningTabItem))
             {
-                ImageTools.CropImage(this.selectedCoverImage, ref this.coverCropper);
-                this.coverImageThumbnail.Source = this.selectedCoverImage.Source;
-                this.confirmCoverImage.Source = this.selectedCoverImage.Source;
-            }
-            else if (currentTab.Equals(this.tocTabItem) && isSelectedTocImage)
-            {
-                ImageSource oldSource = this.selectedTocImage.Source;
-                ImageTools.CropImage(this.selectedTocImage, ref this.tocCropper);
-                ImageSource newSource = this.selectedTocImage.Source;
-                this.selectedTocImageThumbnail.Source = newSource;
-                SetConfirmationTocNewImageSource(oldSource, newSource);
+                Crop_Clicked(null, null);
             }
         }
-
-        //scanImage
-        private void ScanImageCommandCanExecute(object sender, CanExecuteRoutedEventArgs e)
+        
+        //deskew
+        private void DeskewCommandCanExecute(object sender, CanExecuteRoutedEventArgs e)
         {
             e.CanExecute = true;
             e.Handled = true;
         }
 
-        private void ScanImageCommandExecuted(object sender, ExecutedRoutedEventArgs e)
+        private void DeskewCommandExecuted(object sender, ExecutedRoutedEventArgs e)
         {
             TabItem currentTab = tabControl.SelectedItem as TabItem;
-            if (currentTab.Equals(this.coverTabItem))
+            if (currentTab.Equals(this.scanningTabItem))
             {
-                ScanImage(true);
-            }
-            else if (currentTab.Equals(this.tocTabItem))
-            {
-                ScanImage(false);
+                Deskew_Clicked(null, null);
             }
         }
         #endregion
@@ -330,7 +247,7 @@ namespace ScannerClient_obalkyknih
         // Shows all available metadata in new MetadataWindow
         private void showCompleteMetadataButton_Click(object sender, RoutedEventArgs e)
         {
-            if (this.metadataRetriever.Metadata != null)
+            if (this.metadataRetriever != null && this.metadataRetriever.Metadata != null)
             {
                 Window metadataWindow = new MetadataWindow(this.metadataRetriever.Metadata);
                 metadataWindow.Show();
@@ -342,7 +259,7 @@ namespace ScannerClient_obalkyknih
         {
             this.downloadMetadataButton.IsEnabled = false;
             (Window.GetWindow(this) as MainWindow).AddMessageToStatusBar("Stahuji metadata.");
-            this.metadataReceiverBackgroundWorker.RunWorkerAsync();
+            this.metadataReceiverBackgroundWorker.RunWorkerAsync(null);
         }
         
         // On doubleclick, downloads pdf with toc and opens it in default viewer
@@ -384,8 +301,18 @@ namespace ScannerClient_obalkyknih
         private void MetadataReceiverBW_DoWork(object sender, DoWorkEventArgs e)
         {
             BackgroundWorker worker = sender as BackgroundWorker;
-            metadataRetriever = new MetadataRetriever(this.barcode);
-            e.Result = metadataRetriever;
+            Metadata metadata = e.Argument as Metadata;
+            MetadataRetriever mr = null;
+            if (metadata == null)
+            {
+                mr = new MetadataRetriever(this.barcode);
+            }
+            else
+            {
+                mr = new MetadataRetriever(this.barcode, metadata);
+                mr.RetrieveOriginalCoverAndTocInformation();
+            }
+            e.Result = mr;
         }
 
         // Called after worker ended job, shows status with which worker ended
@@ -395,7 +322,7 @@ namespace ScannerClient_obalkyknih
             this.downloadMetadataButton.IsEnabled = true;
             if (e.Error != null)
             {
-                System.Windows.MessageBox.Show(e.Error.Message, "Chyba při stahování metadat",
+                MessageBox.Show(e.Error.Message, "Chyba při stahování metadat",
                     MessageBoxButton.OK, MessageBoxImage.Error);
             }
             else if (!e.Cancelled)
@@ -405,6 +332,11 @@ namespace ScannerClient_obalkyknih
                 {
                     FillMetadata(this.metadataRetriever.Metadata);
                     this.showCompleteMetadataButton.IsEnabled = true;
+                    if (this.metadataRetriever.Warnings.Count > 0)
+                    {
+                        string message = string.Join(Environment.NewLine, this.metadataRetriever.Warnings);
+                        MessageBox.Show(message, "Duplicitní identifikátor", MessageBoxButton.OK, MessageBoxImage.Information);
+                    }
                 }
                 DownloadCoverAndToc();
             }
@@ -443,7 +375,14 @@ namespace ScannerClient_obalkyknih
                 imgsrc.BeginInit();
                 imgsrc.StreamSource = e.Result;
                 imgsrc.EndInit();
-                this.originalCoverImage.Source = imgsrc;
+                if (this.tabControl.SelectedItem == this.controlTabItem)
+                {
+                    this.controlCoverImage.Source = imgsrc;
+                }
+                else
+                {
+                    this.originalCoverImage.Source = imgsrc;
+                }
             }
         }
 
@@ -457,8 +396,16 @@ namespace ScannerClient_obalkyknih
                 imgsrc.BeginInit();
                 imgsrc.StreamSource = e.Result;
                 imgsrc.EndInit();
-                this.originalTocImage.Source = imgsrc;
-                this.originalTocImage.Cursor = Cursors.Hand;
+                if (this.tabControl.SelectedItem == this.controlTabItem)
+                {
+                    this.controlTocImage.Source = imgsrc;
+                    this.controlTocImage.IsEnabled = true;
+                }
+                else
+                {
+                    this.originalTocImage.Source = imgsrc;
+                    this.originalTocImage.IsEnabled = true; ;
+                }
             }
         }
 
@@ -495,11 +442,8 @@ namespace ScannerClient_obalkyknih
         // Validates identifiers, highlights errors
         private void ValidateIdentifiers(object sender, TextChangedEventArgs e)
         {
-            //copy basic info
-            this.confirmTitle.Content = this.titleTextBox.Text;
-            this.confirmAuthor.Content = this.authorTextBox.Text;
-            this.confirmYear.Content = this.yearTextBox.Text;
-            this.confirmIdentifiers.Content = "";
+            // set title to scanning tab
+            this.ThumbnailsTitleLabel.Content = this.titleTextBox.Text;
 
             string error;
             //ISBN
@@ -509,14 +453,15 @@ namespace ScannerClient_obalkyknih
                 error = ValidateIsbn(this.isbnTextBox.Text);
                 if (error != null)
                 {
-                    this.isbnErrorLabel.Content = 'x';
-                    this.isbnErrorLabel.ToolTip = this.isbnTextBox.ToolTip = error;
+                    this.isbnWarning.Visibility = Visibility.Visible;
+                    this.isbnWarning.ToolTip = this.isbnTextBox.ToolTip = error;
+                    this.isbnTextBox.BorderBrush = (SolidColorBrush)(new BrushConverter().ConvertFrom("#A50100"));
                 }
                 else
                 {
-                    this.isbnErrorLabel.Content = "";
-                    this.isbnErrorLabel.ToolTip = this.isbnTextBox.ToolTip = null;
-                    this.confirmIdentifiers.Content += "ISBN: " + this.isbnTextBox.Text + Environment.NewLine;
+                    this.isbnWarning.Visibility = Visibility.Hidden;
+                    this.isbnWarning.ToolTip = this.isbnTextBox.ToolTip = null;
+                    this.isbnTextBox.BorderBrush = (SolidColorBrush)(new BrushConverter().ConvertFrom("#111111"));
                 }
             }
             // ISSN 7 numbers + checksum
@@ -526,14 +471,15 @@ namespace ScannerClient_obalkyknih
                 error = ValidateIssn(this.issnTextBox.Text);
                 if (error != null)
                 {
-                    this.issnErrorLabel.Content = 'x';
-                    this.issnErrorLabel.ToolTip = this.issnTextBox.ToolTip = error;
+                    this.issnWarning.Visibility = Visibility.Visible;
+                    this.issnWarning.ToolTip = this.issnTextBox.ToolTip = error;
+                    this.issnTextBox.BorderBrush = (SolidColorBrush)(new BrushConverter().ConvertFrom("#A50100"));
                 }
                 else
                 {
-                    this.issnErrorLabel.Content = "";
-                    this.issnErrorLabel.ToolTip = this.issnTextBox.ToolTip = null;
-                    this.confirmIdentifiers.Content += "ISSN: " + this.issnTextBox.Text + Environment.NewLine;
+                    this.issnWarning.Visibility = Visibility.Hidden;
+                    this.issnWarning.ToolTip = this.issnTextBox.ToolTip = null;
+                    this.issnTextBox.BorderBrush = (SolidColorBrush)(new BrushConverter().ConvertFrom("#111111"));
                 }
             }
             // EAN - 12 numbers + checksum
@@ -543,14 +489,15 @@ namespace ScannerClient_obalkyknih
                 error = ValidateEan(this.eanTextBox.Text);
                 if (error != null)
                 {
-                    this.eanErrorLabel.Content = 'x';
-                    this.eanErrorLabel.ToolTip = this.eanTextBox.ToolTip = error;
+                    this.eanWarning.Visibility = Visibility.Visible;
+                    this.eanWarning.ToolTip = this.eanTextBox.ToolTip = error;
+                    this.eanTextBox.BorderBrush = (SolidColorBrush)(new BrushConverter().ConvertFrom("#A50100"));
                 }
                 else
                 {
-                    this.eanErrorLabel.Content = "";
-                    this.eanErrorLabel.ToolTip = this.eanTextBox.ToolTip = null;
-                    this.confirmIdentifiers.Content += "EAN: " + this.eanTextBox.Text + Environment.NewLine;
+                    this.eanWarning.Visibility = Visibility.Hidden;
+                    this.eanWarning.ToolTip = this.eanTextBox.ToolTip = null;
+                    this.eanTextBox.BorderBrush = (SolidColorBrush)(new BrushConverter().ConvertFrom("#111111"));
                 }
             }
             // CNB - cnb + 9 numbers
@@ -560,14 +507,15 @@ namespace ScannerClient_obalkyknih
                 error = ValidateCnb(this.cnbTextBox.Text);
                 if (error != null)
                 {
-                    this.cnbErrorLabel.Content = 'x';
-                    this.cnbErrorLabel.ToolTip = this.cnbTextBox.ToolTip = error;
+                    this.cnbWarning.Visibility = Visibility.Visible;
+                    this.cnbWarning.ToolTip = this.cnbTextBox.ToolTip = error;
+                    this.cnbTextBox.BorderBrush = (SolidColorBrush)(new BrushConverter().ConvertFrom("#A50100"));
                 }
                 else
                 {
-                    this.cnbErrorLabel.Content = "";
-                    this.cnbErrorLabel.ToolTip = this.cnbTextBox.ToolTip = null;
-                    this.confirmIdentifiers.Content += "ČNB: " + this.cnbTextBox.Text + Environment.NewLine;
+                    this.cnbWarning.Visibility = Visibility.Hidden;
+                    this.cnbWarning.ToolTip = this.cnbTextBox.ToolTip = null;
+                    this.cnbTextBox.BorderBrush = (SolidColorBrush)(new BrushConverter().ConvertFrom("#111111"));
                 }
             }
             //OCLC - variable-length numeric string
@@ -577,28 +525,16 @@ namespace ScannerClient_obalkyknih
                 error = ValidateOclc(this.oclcTextBox.Text);
                 if (error != null)
                 {
-                    this.oclcErrorLabel.Content = 'x';
-                    this.oclcErrorLabel.ToolTip = this.oclcTextBox.ToolTip = error;
+                    this.oclcWarning.Visibility = Visibility.Visible;
+                    this.oclcWarning.ToolTip = this.oclcTextBox.ToolTip = error;
+                    this.oclcTextBox.BorderBrush = (SolidColorBrush)(new BrushConverter().ConvertFrom("#A50100"));
                 }
                 else
                 {
-                    this.oclcErrorLabel.Content = "";
-                    this.oclcErrorLabel.ToolTip = this.oclcTextBox.ToolTip = null;
-                    this.confirmIdentifiers.Content += "OCLC: " + this.oclcTextBox.Text + Environment.NewLine;
+                    this.oclcWarning.Visibility = Visibility.Hidden;
+                    this.oclcWarning.ToolTip = this.oclcTextBox.ToolTip = null;
+                    this.oclcTextBox.BorderBrush = (SolidColorBrush)(new BrushConverter().ConvertFrom("#111111"));
                 }
-            }
-            //URN
-            if (!string.IsNullOrEmpty(this.urnNbnTextBox.Text))
-            {
-                this.confirmIdentifiers.Content += "URN:NBN: " + this.urnNbnTextBox.Text + Environment.NewLine;
-
-            }
-            //Custom
-            if (!string.IsNullOrEmpty(this.siglaTextBox.Text))
-            {
-                this.confirmIdentifiers.Content += "Vlastní: " + Settings.Sigla
-                    + "-" + this.siglaTextBox.Text + Environment.NewLine;
-
             }
         }
 
@@ -664,7 +600,7 @@ namespace ScannerClient_obalkyknih
                     }
                     break;
                 default:
-                    errorText = "ISBN má " + isbn.Length + " cifer";
+                    errorText = "ISBN musí obsahovat 10 nebo 13 čísel";
                     break;
             }
             return errorText;
@@ -702,7 +638,7 @@ namespace ScannerClient_obalkyknih
             }
             else
             {
-                errorText = "ISSN má " + issn.Length + "cifer";
+                errorText = "ISSN musí obsahovat 8 čísel";
             }
 
             return errorText;
@@ -711,15 +647,19 @@ namespace ScannerClient_obalkyknih
         // Validates given oclc, returns error message or null
         private string ValidateOclc(string oclc)
         {
-            string errorText = null;
-
-            int tmp;
-            if (!int.TryParse(oclc, out tmp))
+            if (!oclc.StartsWith("(OCoLC)"))
             {
-                errorText = "OCLC obsahuje nečíselné znaky";
+                return "OCLC nezačíná znaky (OCoLC)";
             }
 
-            return errorText;
+            oclc = oclc.Substring(7);
+            long tmp;
+            if (!long.TryParse(oclc, out tmp))
+            {
+                return "OCLC obsahuje za znaky (OCoLC) další nečíselné znaky";
+            }
+
+            return null;
         }
 
         // Validates given cnb, returns error message or null
@@ -735,7 +675,7 @@ namespace ScannerClient_obalkyknih
                 {
                     if (cnbTmp.Length != 9)
                     {
-                        errorText = "ČNB obsahuje víc než 9 číslic";
+                        errorText = "ČNB musí obsahovat za znaky cnb přesně 9 číslic";
                     }
                 }
                 else
@@ -784,7 +724,7 @@ namespace ScannerClient_obalkyknih
             }
             else
             {
-                errorText = "EAN má " + ean.Length + "cifer";
+                errorText = "EAN musí mít 13 číslic.";
             }
 
             return errorText;
@@ -792,351 +732,7 @@ namespace ScannerClient_obalkyknih
         #endregion
         #endregion
 
-        #region cover tab controls
-
-        // Scan button on cover tab clicked - Scans image and sets it to selectedCoverImage
-        private void CoverScanButton_Click(object sender, RoutedEventArgs e)
-        {
-            bool isCover = true;
-            ScanImage(isCover);
-        }
-
-        // Saves image to file and opens it in chosen graphical editor
-        private void CoverEditButton_Click(object sender, RoutedEventArgs e)
-        {
-            if (string.IsNullOrWhiteSpace(Settings.ExternalImageEditor))
-            {
-                MessageBox.Show("V nastaveních nebyla zadána cesta k externímu editoru",
-                    "Chybí cesta k editoru", MessageBoxButton.OK, MessageBoxImage.Error);
-                return;
-            }
-
-            string fileUriString = @"temp-cover.tif";
-            //save temporary tiff file for edit purposes
-            FileStream stream = new FileStream(fileUriString, FileMode.Create);
-            TiffBitmapEncoder encoderTiff = new TiffBitmapEncoder();
-            encoderTiff.Compression = TiffCompressOption.Lzw;
-            encoderTiff.Frames.Add(BitmapFrame.Create(selectedCoverImage.Source as BitmapSource));
-            encoderTiff.Save(stream);
-            stream.Close();
-
-            Process graphicalEditorProcess = new Process();
-            graphicalEditorProcess.StartInfo.FileName = Settings.ExternalImageEditor;
-            graphicalEditorProcess.StartInfo.Arguments = fileUriString;
-            graphicalEditorProcess.StartInfo.UseShellExecute = false;
-            graphicalEditorProcess.Start();
-        }
-
-        // Rotates cover 90 degrees left
-        private void CoverRotateLeft_Clicked(object sender, MouseButtonEventArgs e)
-        {
-            if (!isSelectedCoverImage)
-            {
-                return;
-            }
-            ImageTools.RotateImage(this.selectedCoverImage, -90);
-            this.coverImageThumbnail.Source = this.selectedCoverImage.Source;
-            this.confirmCoverImage.Source = this.coverImageThumbnail.Source;
-        }
-
-        // Rotates cover 90 degrees right
-        private void CoverRotateRight_Clicked(object sender, MouseButtonEventArgs e)
-        {
-            if (!isSelectedCoverImage)
-            {
-                return;
-            }
-            ImageTools.RotateImage(this.selectedCoverImage, 90);
-            this.coverImageThumbnail.Source = this.selectedCoverImage.Source;
-            this.confirmCoverImage.Source = this.coverImageThumbnail.Source;
-        }
-
-        // Rotates cover by 180 degrees
-        private void CoverRotate180_Clicked(object sender, MouseButtonEventArgs e)
-        {
-            if (!isSelectedCoverImage)
-            {
-                return;
-            }
-            ImageTools.RotateImage(this.selectedCoverImage, 180);
-            this.coverImageThumbnail.Source = this.selectedCoverImage.Source;
-            this.confirmCoverImage.Source = this.coverImageThumbnail.Source;
-        }
-
-        // Vertically flips cover
-        private void CoverVerticalFlip_Clicked(object sender, MouseButtonEventArgs e)
-        {
-            if (!isSelectedCoverImage)
-            {
-                return;
-            }
-            ImageTools.FlipVerticalImage(this.selectedCoverImage);
-            this.coverImageThumbnail.Source = this.selectedCoverImage.Source;
-            this.confirmCoverImage.Source = this.coverImageThumbnail.Source;
-        }
-
-        // Vertically flips cover
-        private void CoverHorizontalFlip_Clicked(object sender, MouseButtonEventArgs e)
-        {
-            if (!isSelectedCoverImage)
-            {
-                return;
-            }
-            ImageTools.FlipHorizontalImage(this.selectedCoverImage);
-            this.coverImageThumbnail.Source = this.selectedCoverImage.Source;
-            this.confirmCoverImage.Source = this.coverImageThumbnail.Source;
-        }
-
-        // Changes brightness of cover - irreversible process
-        private void CoverBrightnessSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
-        {
-            int diff = (int)(e.NewValue - e.OldValue);
-            TransformedBitmap bi = new TransformedBitmap();
-            bi.BeginInit();
-            bi.Source = ImageTools.ApplyBrightness(this.selectedCoverImage.Source as BitmapSource, diff);
-            bi.EndInit();
-            this.selectedCoverImage.Source = bi;
-            this.coverImageThumbnail.Source = this.selectedCoverImage.Source;
-            this.confirmCoverImage.Source = this.coverImageThumbnail.Source;
-        }
-
-        // Changes contrast of cover - irreversible process
-        private void CoverContrastSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
-        {
-            int diff = (int)(e.NewValue - e.OldValue);
-            TransformedBitmap bi = new TransformedBitmap();
-            bi.BeginInit();
-            bi.Source = ImageTools.ApplyContrast(this.selectedCoverImage.Source as BitmapSource, diff);
-            bi.EndInit();
-            this.selectedCoverImage.Source = bi;
-            this.coverImageThumbnail.Source = this.selectedCoverImage.Source;
-            this.confirmCoverImage.Source = this.coverImageThumbnail.Source;
-        }
-
-        // Crops cover image - irreversible process
-        private void CoverCropButton_Click(object sender, RoutedEventArgs e)
-        {
-            ImageTools.CropImage(this.selectedCoverImage, ref this.coverCropper);
-            this.coverImageThumbnail.Source = this.selectedCoverImage.Source;
-            this.confirmCoverImage.Source = this.coverImageThumbnail.Source;
-        }
-
-        // Loads cover image from file (bmp, png, jpeg, wmp, gif, tiff)
-        private void CoverLoadImageButton_Click(object sender, RoutedEventArgs e)
-        {
-            Microsoft.Win32.OpenFileDialog dlg = new Microsoft.Win32.OpenFileDialog();
-            dlg.Filter = "image files (bmp;png;jpeg;wmp;gif;tiff)|*.png;*.bmp;*.jpeg;*.jpg;*.wmp;*.gif;*.tiff;*.tif";
-            dlg.FilterIndex = 2;
-            bool? result = dlg.ShowDialog();
-
-            // Process open file dialog box results
-            if (result == true)
-            {
-                string fileName = dlg.FileName;
-                bool isCover = true;
-                LoadExternalImage(isCover, fileName);
-            }
-            coverEditButton.IsEnabled = true;
-        }
-
-        // Assign cover image to selectedCoverImage and add crop to it
-        private void CoverImage_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
-        {
-            Image image = sender as Image;
-            this.selectedCoverImage.Source = image.Source;
-            this.coverImageThumbnail = image;
-            ImageTools.AddCropToElement(this.selectedCoverImage, ref coverCropper);
-        }
-        #endregion
-
-        #region toc tab controls
-
-        // Rotates TOC image 90 degrees left
-        private void TocRotateLeft_Clicked(object sender, MouseButtonEventArgs e)
-        {
-            if (!isSelectedTocImage)
-            {
-                return;
-            }
-            ImageSource oldSource = this.selectedTocImage.Source;
-            ImageTools.RotateImage(selectedTocImage, -90);
-            ImageSource newSource = this.selectedTocImage.Source;
-            this.selectedTocImageThumbnail.Source = newSource;
-            SetConfirmationTocNewImageSource(oldSource, newSource);
-        }
-
-        // Rotates TOC image 90 degrees right
-        private void TocRotateRight_Clicked(object sender, MouseButtonEventArgs e)
-        {
-            if (!isSelectedTocImage)
-            {
-                return;
-            }
-            ImageSource oldSource = this.selectedTocImage.Source;
-            ImageTools.RotateImage(selectedTocImage, 90);
-            ImageSource newSource = this.selectedTocImage.Source;
-            this.selectedTocImageThumbnail.Source = newSource;
-            SetConfirmationTocNewImageSource(oldSource, newSource);
-        }
-
-        // Rotates TOC image by 180 degrees
-        private void TocRotate180_Clicked(object sender, MouseButtonEventArgs e)
-        {
-            if (!isSelectedTocImage)
-            {
-                return;
-            }
-            ImageSource oldSource = this.selectedTocImage.Source;
-            ImageTools.RotateImage(selectedTocImage, 180);
-            ImageSource newSource = this.selectedTocImage.Source;
-            this.selectedTocImageThumbnail.Source = newSource;
-            SetConfirmationTocNewImageSource(oldSource, newSource);
-        }
-
-        // Vertically flips TOC image
-        private void TocVerticalFlip_Clicked(object sender, MouseButtonEventArgs e)
-        {
-            if (!isSelectedTocImage)
-            {
-                return;
-            }
-            ImageSource oldSource = this.selectedTocImage.Source;
-            ImageTools.FlipVerticalImage(selectedTocImage);
-            ImageSource newSource = this.selectedTocImage.Source;
-            this.selectedTocImageThumbnail.Source = newSource;
-            SetConfirmationTocNewImageSource(oldSource, newSource);
-        }
-
-        //Horizontally flips TOC image
-        private void TocHorizontalFlip_Clicked(object sender, MouseButtonEventArgs e)
-        {
-            if (!isSelectedTocImage)
-            {
-                return;
-            }
-            ImageSource oldSource = this.selectedTocImage.Source;
-            ImageTools.FlipHorizontalImage(selectedTocImage);
-            ImageSource newSource = this.selectedTocImage.Source;
-            this.selectedTocImageThumbnail.Source = newSource;
-            SetConfirmationTocNewImageSource(oldSource, newSource);
-        }
-
-        // Scans new TOC image
-        private void tocScanButton_Click(object sender, RoutedEventArgs e)
-        {
-            bool isCover = false;
-            ScanImage(isCover);
-        }
-
-        // Crops TOC image
-        private void tocCropButton_Click(object sender, RoutedEventArgs e)
-        {
-            ImageSource oldSource = this.selectedTocImage.Source;
-            ImageTools.CropImage(this.selectedTocImage, ref this.tocCropper);
-            ImageSource newSource = this.selectedTocImage.Source;
-            this.selectedTocImageThumbnail.Source = newSource;
-            SetConfirmationTocNewImageSource(oldSource, newSource);
-        }
-
-        // Saves TOC image to file and opens it in external editor
-        private void tocEditButton_Click(object sender, RoutedEventArgs e)
-        {
-            if (string.IsNullOrWhiteSpace(Settings.ExternalImageEditor))
-            {
-                MessageBox.Show("V nastaveních nebyla zadána cesta k externímu editoru",
-                    "Chybí cesta k editoru", MessageBoxButton.OK, MessageBoxImage.Error);
-                return;
-            }
-            
-            string fileUriString = @"temp-toc.tif";
-            //save temporary tiff file for edit purposes
-            FileStream stream = new FileStream(fileUriString, FileMode.Create);
-            TiffBitmapEncoder encoderTiff = new TiffBitmapEncoder();
-            encoderTiff.Compression = TiffCompressOption.Lzw;
-            encoderTiff.Frames.Add(BitmapFrame.Create(selectedTocImage.Source as BitmapSource));
-            encoderTiff.Save(stream);
-            stream.Close();
-
-            Process graphicalEditorProcess = new Process();
-            graphicalEditorProcess.StartInfo.FileName = Settings.ExternalImageEditor;
-            graphicalEditorProcess.StartInfo.Arguments = fileUriString;
-            graphicalEditorProcess.StartInfo.UseShellExecute = false;
-            graphicalEditorProcess.Start();
-        }
-
-        // Sets brighness of TOC image
-        private void tocBrightnessSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
-        {
-            ImageSource oldSource = this.selectedTocImage.Source;
-            int diff = (int)(e.NewValue - e.OldValue);
-            TransformedBitmap bi = new TransformedBitmap();
-            bi.BeginInit();
-            bi.Source = ImageTools.ApplyBrightness(selectedTocImage.Source as BitmapSource, diff);
-            bi.EndInit();
-            selectedTocImage.Source = bi;
-            ImageSource newSource = this.selectedTocImage.Source;
-            this.selectedTocImageThumbnail.Source = newSource;
-            SetConfirmationTocNewImageSource(oldSource, newSource);
-        }
-
-        // Sets contrast of TOC image
-        private void tocContrastSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
-        {
-            ImageSource oldSource = this.selectedTocImage.Source;
-            int diff = (int)(e.NewValue - e.OldValue);
-            TransformedBitmap bi = new TransformedBitmap();
-            bi.BeginInit();
-            bi.Source = ImageTools.ApplyContrast(selectedTocImage.Source as BitmapSource, diff);
-            bi.EndInit();
-            selectedTocImage.Source = bi;
-            ImageSource newSource = this.selectedTocImage.Source;
-            this.selectedTocImageThumbnail.Source = newSource;
-            SetConfirmationTocNewImageSource(oldSource, newSource);
-        }
-
-        // Sets selected TOC image from list of all TOC images
-        private void tocImage_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
-        {
-            this.tocBrightnessSlider.Value = 0;
-            this.tocContrastSlider.Value = 0;
-            Image image = sender as Image;
-            this.selectedTocImage.Source = image.Source;
-            this.selectedTocImageThumbnail = image;
-            ImageTools.AddCropToElement(selectedTocImage, ref tocCropper);
-
-            //enable controlers for image manipulation
-            this.isSelectedTocImage = true;
-            this.tocCropButton.IsEnabled = true;
-            this.tocBrightnessSlider.IsEnabled = true;
-            this.tocContrastSlider.IsEnabled = true;
-            this.tocEditButton.IsEnabled = true;
-        }
-
-        // Loads new TOC image from file
-        private void tocLoadImageButton_Click(object sender, RoutedEventArgs e)
-        {
-            Microsoft.Win32.OpenFileDialog dlg = new Microsoft.Win32.OpenFileDialog();
-            dlg.Filter = "image files (bmp;png;jpeg;wmp;gif;tiff)|*.png;*.bmp;*.jpeg;*.jpg;*.wmp;*.gif;*.tiff;*.tif";
-            dlg.FilterIndex = 2;
-            bool? result = dlg.ShowDialog();
-
-            // Process open file dialog box results
-            if (result == true)
-            {
-                string fileName = dlg.FileName;
-                bool isCover = false;
-                LoadExternalImage(isCover, fileName);
-            }
-        }
-        #endregion
-
-        #region confirmation tab controls
-
-        // Sends to ObalkyKnih
-        private void SendButton_Click(object sender, RoutedEventArgs e)
-        {
-            SendToObalkyKnih();
-        }
+        #region sending to ObalkyKnih
 
         // Checks everything and calls uploadWorker to upload to obalkyknih
         private void SendToObalkyKnih()
@@ -1240,39 +836,14 @@ namespace ScannerClient_obalkyknih
             nvc.Add("year", this.yearTextBox.Text ?? "");
             nvc.Add("ocr", (this.ocrCheckBox.IsChecked == true) ? "yes" : "no");
 
-            Stream coverStream = null;
-            Stream tocStream = null;
-            Stream metaStream = new MemoryStream();
+            string metaXml = null;
+            string coverFileName = (this.coverGuid == Guid.Empty) ? null : this.imagesFilePaths[this.coverGuid];
+            List<string> tocFileNames = new List<string>();
 
-            //cover tiff
-            if (this.isSelectedCoverImage)
+            //cover
+            if (this.coverGuid == Guid.Empty)
             {
-                try
-                {
-                    //convert from Bgra32 into RGB24
-                    BitmapSource sourceBmp = selectedCoverImage.Source as BitmapSource;
-                    PixelFormat pixelFormat = sourceBmp.Format;
-                    ColorContext sourceContext = new ColorContext(pixelFormat);
-                    ColorContext destContext = new ColorContext(PixelFormats.Rgb24);
-                    ColorConvertedBitmap convertedBmp = new ColorConvertedBitmap(
-                        sourceBmp, sourceContext, destContext, PixelFormats.Rgb24);
-
-                    TiffBitmapEncoder encoderTiff = new TiffBitmapEncoder();
-                    encoderTiff.Compression = TiffCompressOption.Lzw;
-                    encoderTiff.Frames.Add(BitmapFrame.Create(convertedBmp));
-                    coverStream = new MemoryStream();
-                    encoderTiff.Save(coverStream);
-                }
-                catch(Exception)
-                {
-                    MessageBox.Show("Obálku se nepovedlo zkonvertovat, pravděpodobně má špatný formát.",
-                            "Chybná obálka.", MessageBoxButton.OK, MessageBoxImage.Error);
-                    return;
-                }
-            }
-            else
-            {
-                var result = MessageBox.Show("Chybí obálka. Opravdu chcete odeslat data bez obálky?",
+                var result = MessageBox.Show("Opravdu chcete odeslat data bez obálky?",
                 "Chybí obálka.", MessageBoxButton.YesNo, MessageBoxImage.Warning);
                 if (result != MessageBoxResult.Yes)
                 {
@@ -1280,57 +851,28 @@ namespace ScannerClient_obalkyknih
                 }
             }
 
-            //toc multipage tiff
-            if (this.confirmTocImagesList.Items.Count > 0)
-            {
-                try
-                {
-                    tocStream = new MemoryStream();
-                    TiffBitmapEncoder encoderTiff = new TiffBitmapEncoder();
-                    encoderTiff.Compression = TiffCompressOption.Lzw;
-                    for (int i = 0; i < this.confirmTocImagesList.Items.Count; i++)
-                    {
-                        if (this.confirmTocImagesList.Items[i] is Image)
-                        {
-                            //convert from Bgra32 into RGB24
-                            BitmapSource sourceBmp = (this.confirmTocImagesList.Items[i] as Image)
-                                .Source as BitmapSource;
-                            PixelFormat pixelFormat = sourceBmp.Format;
-                            ColorContext sourceContext = new ColorContext(pixelFormat);
-                            ColorContext destContext = new ColorContext(PixelFormats.Rgb24);
-                            ColorConvertedBitmap convertedBmp = new ColorConvertedBitmap(
-                                sourceBmp, sourceContext, destContext, PixelFormats.Rgb24);
-
-                            //add frame to multi-frame tiff
-                            encoderTiff.Frames.Add(BitmapFrame.Create(convertedBmp));
-                        }
-                    }
-                    encoderTiff.Save(tocStream);
-                }
-                catch (Exception)
-                {
-                    MessageBox.Show("Obsah se nepovedlo zkonvertovat, pravděpodobně má špatný formát.",
-                            "Chybný obsah", MessageBoxButton.OK, MessageBoxImage.Error);
-                    return;
-                }
-                //compute SHA1 hash of toc
-                SHA1Managed sha = new SHA1Managed();
-                byte[] checksumBytes = sha.ComputeHash(tocStream);
-                string tocChecksum = BitConverter.ToString(checksumBytes).Replace("-", String.Empty);
-                nvc.Add("toc_sha1hex", tocChecksum);
-            }
-            else
+            //toc
+            if (!this.tocImagesList.HasItems)
             {
                 var result = MessageBox.Show("Opravdu chcete odeslat data bez obsahu?",
                 "Chybí obsah", MessageBoxButton.YesNo, MessageBoxImage.Warning);
                 if (result != MessageBoxResult.Yes)
                 {
-                    if (coverStream != null)
-                    {
-                        coverStream.Close();
-                        coverStream = null;
-                    }
                     return;
+                }
+            }
+            else
+            {
+                foreach (var grid in tocImagesList.Items)
+                {
+                    Guid guid = Guid.Empty;
+                    foreach (var record in this.tocThumbnailGridsDictionary)
+                    {
+                        if (record.Value.Equals(grid))
+                        {
+                            tocFileNames.Add(this.imagesFilePaths[record.Key]);
+                        }
+                    }
                 }
             }
 
@@ -1355,7 +897,7 @@ namespace ScannerClient_obalkyknih
                 rootElement.Add(scannerElement);
                 XDocument xmlDoc = new XDocument(
                 new XDeclaration("1.0", "utf-8", "yes"), rootElement);
-                xmlDoc.Save(metaStream);
+                metaXml = xmlDoc.ToString();
             }
             catch (Exception)
             {
@@ -1366,9 +908,9 @@ namespace ScannerClient_obalkyknih
 
             UploadParameters param = new UploadParameters();
             param.Url = Settings.ImportLink;
-            param.CoverStream = coverStream;
-            param.TocStream = tocStream;
-            param.MetaStream = metaStream;
+            param.TocFilePaths = tocFileNames;
+            param.CoverFilePath = coverFileName;
+            param.MetaXml = metaXml;
             param.Nvc = nvc;
             this.uploaderBackgroundWorker.RunWorkerAsync(param);
             
@@ -1378,10 +920,10 @@ namespace ScannerClient_obalkyknih
 
         // Method for uploading multipart/form-data
         // url where will be data posted, login, password
-        private void UploadFilesToRemoteUrl(string url, Stream coverStream, Stream tocStream,
-            Stream metaStream, NameValueCollection nvc, DoWorkEventArgs e)
+        private void UploadFilesToRemoteUrl(string url, string coverFileName, List<string> tocFileNames,
+            string metaXml, NameValueCollection nvc, DoWorkEventArgs e)
         {
-            // Checks
+            // Check version
             UpdateChecker updateChecker = new UpdateChecker();
             updateChecker.RetrieveUpdateInfo();
             if (!updateChecker.IsSupportedVersion)
@@ -1390,129 +932,142 @@ namespace ScannerClient_obalkyknih
                     WebExceptionStatus.ProtocolError);
             }
 
-            string boundary = "----------------------------" + DateTime.Now.Ticks.ToString("x");
-            HttpWebRequest httpWebRequest = (HttpWebRequest)WebRequest.Create(url);
-            httpWebRequest.ContentType = "multipart/form-data; boundary=" + boundary;
-            httpWebRequest.Method = "POST";
-            httpWebRequest.ServicePoint.Expect100Continue = false;
-            httpWebRequest.KeepAlive = false;
+            HttpWebRequest requestToServer = (HttpWebRequest)WebRequest.Create(url);
+            requestToServer.Timeout = 600000;
 
-            boundary = "--" + boundary;
+            // Define a boundary string
+            string boundaryString = "----ObalkyKnih" + DateTime.Now.Ticks.ToString("x");
 
-            Stream memStream = new System.IO.MemoryStream();
+            // Turn off the buffering of data to be written, to prevent OutOfMemoryException when sending data
+            requestToServer.AllowWriteStreamBuffering = false;
+            // Specify that request is a HTTP post
+            requestToServer.Method = WebRequestMethods.Http.Post;
+            // Specify that the content type is a multipart request
+            requestToServer.ContentType = "multipart/form-data; boundary=" + boundaryString;
+            // Turn off keep alive
+            requestToServer.KeepAlive = false;
 
-            var boundarybytes = Encoding.ASCII.GetBytes(boundary + Environment.NewLine);
-            string formdataTemplate = "Content-Disposition: form-data; name=\"{0}\"" + Environment.NewLine + Environment.NewLine + "{1}" + Environment.NewLine;
 
-            //write non-file parameters
+
+
+            UTF8Encoding utf8 = new UTF8Encoding();
+            string boundaryStringLine = "\r\n--" + boundaryString + "\r\n";
+            
+            string lastBoundaryStringLine = "\r\n--" + boundaryString + "--\r\n";
+            byte[] lastBoundaryStringLineBytes = utf8.GetBytes(lastBoundaryStringLine);
+
+
+            // TEXT PARAMETERS
+            string formDataString = "";
             foreach (string key in nvc.Keys)
             {
-                string formitem = string.Format(formdataTemplate, key, nvc[key]);
-                byte[] formitembytes = System.Text.Encoding.UTF8.GetBytes(formitem);
-                memStream.Write(boundarybytes, 0, boundarybytes.Length);
-                memStream.Write(formitembytes, 0, formitembytes.Length);
+                formDataString += boundaryStringLine 
+                    + String.Format(
+                "Content-Disposition: form-data; name=\"{0}\"\r\n\r\n{1}",
+                key,
+                nvc[key]);
             }
+            byte[] formDataBytes = utf8.GetBytes(formDataString);
 
-            string headerTemplate = "Content-Disposition: form-data; name=\"{0}\"; filename=\"{1}\"" + Environment.NewLine + "Content-Type: image/tif" + Environment.NewLine + Environment.NewLine;
-            string headerTemplate2 = "Content-Disposition: form-data; name=\"{0}\"; filename=\"{1}\"" + Environment.NewLine + "Content-Type: text/plain" + Environment.NewLine + Environment.NewLine;
+
+            // COVER PARAMETER
+            long coverSize = 0;
+            string coverDescriptionString = boundaryStringLine
+                + String.Format(
+                "Content-Disposition: form-data; name=\"{0}\"; "
+                 + "filename=\"{1}\"\r\nContent-Type: {2}\r\n\r\n",
+                "cover", "cover.tif", "image/tif");
+            byte[] coverDescriptionBytes = utf8.GetBytes(coverDescriptionString);
             
-            string header;
-            byte[] newLineBytes = Encoding.ASCII.GetBytes(Environment.NewLine);
-            byte[] headerbytes;
-            string name;
-            string fileName;
-
-            //cover
-            if (coverStream != null)
+            if (coverFileName != null)
             {
-                fileName = "cover.tif";
-                name = "cover";
-
-                header = string.Format(headerTemplate, name, fileName);
-
-                headerbytes = Encoding.UTF8.GetBytes(header);
-                
-
-                memStream.Write(boundarybytes, 0, boundarybytes.Length);
-                memStream.Write(headerbytes, 0, headerbytes.Length);
-                coverStream.Position = 0;
-                coverStream.CopyTo(memStream);
-                memStream.Write(newLineBytes, 0, newLineBytes.Length);
-                coverStream.Close();
+                FileInfo fileInfo = new FileInfo(coverFileName);
+                coverSize = fileInfo.Length + coverDescriptionBytes.Length;
             }
-            //toc
-            if (tocStream != null)
+            
+
+            // TOC PARAMETERS
+            int counter = 1;
+            Dictionary<string, byte[]> tocDescriptionsDictionary = new Dictionary<string, byte[]>();
+            long tocSize = 0;
+            foreach (var fileName in tocFileNames)
             {
-                fileName = "toc_page_1.tif";
-                name = "toc_page_1";
+                string tocDescription = boundaryStringLine
+                    + String.Format(
+                "Content-Disposition: form-data; name=\"{0}\"; "
+                 + "filename=\"{1}\"\r\nContent-Type: {2}\r\n\r\n",
+                "toc_page_" + counter, "toc_page_" + counter + ".tif", "image/tif");
+                byte[] tocDescriptionBytes = utf8.GetBytes(tocDescription);
 
-                header = string.Format(headerTemplate, name, fileName);
-                headerbytes = Encoding.UTF8.GetBytes(header);
+                FileInfo fi = new FileInfo(fileName);
+                tocSize += fi.Length + tocDescriptionBytes.Length;
 
-                memStream.Write(boundarybytes, 0, boundarybytes.Length);
-                memStream.Write(headerbytes, 0, headerbytes.Length);
-                tocStream.Position = 0;
-                tocStream.CopyTo(memStream);
-                memStream.Write(newLineBytes, 0, newLineBytes.Length);
-                tocStream.Close();
+                tocDescriptionsDictionary.Add(fileName, tocDescriptionBytes);
+                counter++;
             }
 
-            //meta
-            if (metaStream != null)
+            // META PARAMETER
+            string metaDataString = boundaryStringLine
+                + String.Format(
+                "Content-Disposition: form-data; name=\"{0}\"; "
+                + "filename=\"{1}\"\r\nContent-Type: {2}\r\n\r\n",
+                "meta", "meta.xml", "text/xml")
+                + metaXml;
+            byte[] metaDataBytes = utf8.GetBytes(metaDataString);
+
+            // Calculate the total size of the HTTP request
+            long totalRequestBodySize = 
+                + lastBoundaryStringLineBytes.Length
+                + formDataBytes.Length
+                + coverSize
+                + tocSize
+                +metaDataBytes.Length;
+
+            // And indicate the value as the HTTP request content length
+            requestToServer.ContentLength = totalRequestBodySize;
+
+
+            // Write the http request body directly to the server
+            using (Stream s = requestToServer.GetRequestStream())
             {
-                fileName = "meta.xml";
-                name = "meta";
+                // Send text parameters
+                s.Write(formDataBytes, 0,
+                    formDataBytes.Length);
 
-                header = string.Format(headerTemplate2, name, fileName);
-
-                headerbytes = Encoding.UTF8.GetBytes(header);
-
-                memStream.Write(boundarybytes, 0, boundarybytes.Length);
-                memStream.Write(headerbytes, 0, headerbytes.Length);
-                metaStream.Position = 0;
-                metaStream.CopyTo(memStream);
-                memStream.Write(newLineBytes, 0, newLineBytes.Length);
-                metaStream.Close();
-            }
-
-            //end request
-            var boundaryBuffer = Encoding.ASCII.GetBytes(boundary + "--");
-            memStream.Write(boundaryBuffer, 0, boundaryBuffer.Length);
-
-            httpWebRequest.ContentLength = memStream.Length;
-
-            Stream requestStream = httpWebRequest.GetRequestStream();
-
-            memStream.Position = 0;
-            byte[] tempBuffer = new byte[memStream.Length];
-            memStream.Read(tempBuffer, 0, tempBuffer.Length);
-            memStream.Close();
-            requestStream.Write(tempBuffer, 0, tempBuffer.Length);
-            requestStream.Close();
-
-            WebResponse webResponse = null;
-            try
-            {
-                //timeout 10 minutes
-                httpWebRequest.Timeout = 600000;
-                webResponse = httpWebRequest.GetResponse();
-            }
-            catch (Exception)
-            {
-                if (webResponse != null)
+                // Send cover
+                if (coverFileName != null)
                 {
-                    webResponse.Close();
+                    s.Write(coverDescriptionBytes, 0,
+                        coverDescriptionBytes.Length);
+
+                    byte[] buffer = File.ReadAllBytes(coverFileName);
+                    s.Write(buffer, 0, buffer.Length);
                 }
-                requestStream.Close();
-                throw;
+
+                // Send toc
+                foreach (var tocRecord in tocDescriptionsDictionary)
+                {
+                    GC.Collect();
+                    byte[] buffer = File.ReadAllBytes(tocRecord.Key);
+                    s.Write(tocRecord.Value, 0, tocRecord.Value.Length);
+                    s.Write(buffer, 0, buffer.Length);
+                }
+
+                // Send meta
+                s.Write(metaDataBytes, 0, metaDataBytes.Length);
+
+                // Send the last part of the HTTP request body
+                s.Write(lastBoundaryStringLineBytes, 0, lastBoundaryStringLineBytes.Length);
             }
-            Stream stream2 = webResponse.GetResponseStream();
-            StreamReader reader2 = new StreamReader(stream2);
-            e.Result = reader2.ReadToEnd();
-            stream2.Close();
-            webResponse.Close();
-            httpWebRequest = null;
-            webResponse = null;
+
+
+
+
+            // Grab the response from the server. WebException will be thrown
+            // when a HTTP OK status is not returned
+            WebResponse response = requestToServer.GetResponse();
+            StreamReader responseReader = new StreamReader(response.GetResponseStream());
+            e.Result = responseReader.ReadToEnd();
         }
 
         // Uploads files to obalkyknih in new thread
@@ -1520,7 +1075,7 @@ namespace ScannerClient_obalkyknih
         {
             BackgroundWorker worker = sender as BackgroundWorker;
             UploadParameters up = e.Argument as UploadParameters;
-            UploadFilesToRemoteUrl(up.Url, up.CoverStream, up.TocStream, up.MetaStream, up.Nvc, e);
+            UploadFilesToRemoteUrl(up.Url, up.CoverFilePath, up.TocFilePaths, up.MetaXml, up.Nvc, e);
         }
 
         // Shows result of uploading process (OK or error message)
@@ -1567,6 +1122,12 @@ namespace ScannerClient_obalkyknih
                 string response = (e.Result as string) ?? "";
                 if ("OK".Equals(response))
                 {
+                    FillControlMetadata();
+                    this.controlTabItem.IsEnabled = true;
+                    this.tabControl.SelectedItem = this.controlTabItem;
+                    Metadata m = getMetadataFromTextBoxes();
+                    metadataReceiverBackgroundWorker.RunWorkerAsync(m);
+
                     MessageBox.Show("Odesílání úspěšné.",
                         "Odesláno", MessageBoxButton.OK, MessageBoxImage.Information);
                 }
@@ -1577,12 +1138,67 @@ namespace ScannerClient_obalkyknih
                 }
             }
         }
+
+        // Extracts metadata from textboxes and from metadataRetriever
+        private Metadata getMetadataFromTextBoxes()
+        {
+            Metadata metadata = new Metadata();
+            if (!string.IsNullOrWhiteSpace(this.titleTextBox.Text))
+            {
+                metadata.Title = this.titleTextBox.Text;
+            }
+            if (!string.IsNullOrWhiteSpace(this.authorTextBox.Text))
+            {
+                metadata.Authors = this.authorTextBox.Text;
+            }
+            if (!string.IsNullOrWhiteSpace(this.yearTextBox.Text))
+            {
+                metadata.Year = this.yearTextBox.Text;
+            }
+            if (!string.IsNullOrWhiteSpace(this.isbnTextBox.Text))
+            {
+                metadata.ISBN = this.isbnTextBox.Text;
+            }
+            if (!string.IsNullOrWhiteSpace(this.issnTextBox.Text))
+            {
+                metadata.ISSN = this.issnTextBox.Text;
+            }
+            if (!string.IsNullOrWhiteSpace(this.cnbTextBox.Text))
+            {
+                metadata.CNB = this.cnbTextBox.Text;
+            }
+            if (!string.IsNullOrWhiteSpace(this.oclcTextBox.Text))
+            {
+                metadata.OCLC = this.oclcTextBox.Text;
+            }
+            if (!string.IsNullOrWhiteSpace(this.eanTextBox.Text))
+            {
+                metadata.EAN = this.eanTextBox.Text;
+            }
+            if (!string.IsNullOrWhiteSpace(this.urnNbnTextBox.Text))
+            {
+                metadata.URN= this.urnNbnTextBox.Text;
+            }
+            if (!string.IsNullOrWhiteSpace(this.siglaTextBox.Text))
+            {
+                metadata.Custom = this.siglaTextBox.Text;
+            }
+
+            if (metadataRetriever != null && metadataRetriever.Metadata != null)
+            {
+                metadata.FixedFields = this.metadataRetriever.Metadata.FixedFields;
+                metadata.VariableFields = this.metadataRetriever.Metadata.VariableFields;
+                metadata.Sysno = this.metadataRetriever.Metadata.Sysno;
+            }
+
+            return metadata;
+        }
         #endregion
 
         #region scanning functionality
 
         // Scans image
-        private void ScanImage(bool isCover)
+        private void ScanImage(DocumentType documentType)
         {
             ICommonDialog dialog = new CommonDialog();
 
@@ -1592,7 +1208,7 @@ namespace ScannerClient_obalkyknih
                 return;
             }
 
-            int dpi = isCover ? Settings.CoverDPI : Settings.TocDPI;
+            int dpi = (documentType == DocumentType.Cover) ? Settings.CoverDPI : Settings.TocDPI;
 
             Item item = activeScanner.Items[1];
 
@@ -1603,7 +1219,7 @@ namespace ScannerClient_obalkyknih
                 switch (property.PropertyID)
                 {
                     case 6146: //4 is Black-white,gray is 2, color 1
-                        value = isCover ? Settings.CoverScanType : Settings.TocScanType;
+                        value = (documentType == DocumentType.Cover) ? Settings.CoverScanType : Settings.TocScanType;
                         property.set_Value(ref value);
                         break;
                     case 6147: //dots per inch/horizontal
@@ -1627,29 +1243,32 @@ namespace ScannerClient_obalkyknih
                 MessageBox.Show("Skenování nebylo úspěšné.", "Chyba!", MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
             }
-
-            //We will work with in-memory images
-            MemoryStream ms = new MemoryStream((byte[])image.FileData.get_BinaryData());
-            BitmapImage bmpImg = new BitmapImage();
-            bmpImg.BeginInit();
-            bmpImg.CacheOption = BitmapCacheOption.OnLoad;
-            bmpImg.StreamSource = new MemoryStream(ms.ToArray());
-            bmpImg.EndInit();
-
-            
-            //insert to GUI
-            if (isCover)
+            // create unique identifier for image and save it to file
+            string uri = null;
+            Guid guid = Guid.NewGuid();
+            try
             {
-                AddCoverImage(bmpImg);
+                while (this.imagesFilePaths.ContainsKey(guid))
+                {
+                    guid = Guid.NewGuid();
+                }
+
+                uri = Settings.TemporaryFolder + ((documentType == DocumentType.Cover) ? "obalkyknih-cover_" : "obalkyknih-toc_")
+                    + barcode + "_" + guid + ".bmp";
+                
+                image.SaveFile(uri);
             }
-            else
+            catch (Exception)
             {
-                AddTocImage(bmpImg);
+                MessageBox.Show("Nastal problém při ukládání skenu do souboru.", "Chyba!", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
             }
+            // set image to null for garbage collector called in LoadExternalImage
+            image = null;
+            LoadExternalImage(documentType, uri, guid);
         }
 
-        // Sets active scanner device automatically, show selection dialog, if more scanners
-        // if no scanner device found, shows error window and returns false 
+        // Sets active scanner device automatically, show selection dialog, if more scanners, if no scanner device found, shows error window and returns false 
         private bool setActiveScanner()
         {
             ICommonDialog dialog = new CommonDialog();
@@ -1689,193 +1308,1243 @@ namespace ScannerClient_obalkyknih
 
             return devices;
         }
+        #endregion
 
-        // Loads new cover image
-        private void AddCoverImage(BitmapSource bitmapSource)
+        #region scanning tab controls
+
+        #region Scanning controllers
+        
+        // Scan cover image
+        private void ScanCoverButton_Click(object sender, RoutedEventArgs e)
         {
-            // enable controlers for image manipulation
-            this.isSelectedCoverImage = true;
-
-            this.coverRotateLeft.Cursor = Cursors.Hand;
-            this.coverRotateRight.Cursor = Cursors.Hand;
-            this.coverRotate180.Cursor = Cursors.Hand;
-            this.coverVerticalFlip.Cursor = Cursors.Hand;
-            this.coverHorizontalFlip.Cursor = Cursors.Hand;
-
-            this.coverCropButton.IsEnabled = true;
-            this.coverBrightnessSlider.IsEnabled = true;
-            this.coverContrastSlider.IsEnabled = true;
-            this.coverEditButton.IsEnabled = true;
-            this.coverBrightnessSlider.Value = 0;
-            this.coverContrastSlider.Value = 0;
-
-            // add bitmapSource to images
-            this.coverImageThumbnail.Source = bitmapSource;
-            this.selectedCoverImage.Source = bitmapSource;
-            this.confirmCoverImage.Source = bitmapSource;
-
-            // set crop
-            ImageTools.AddCropToElement(this.selectedCoverImage, ref this.coverCropper);
+            ScanButtonClicked(DocumentType.Cover);
         }
 
-        // Adds new TOC image to list of TOC images
-        private void AddTocImage(BitmapSource bitmapSource)
+        // Scan toc image
+        private void ScanTocButton_Click(object sender, RoutedEventArgs e)
         {
-            //enable controlers for image manipulation
-            this.isSelectedTocImage = true;
-
-            this.tocRotateLeft.Cursor = Cursors.Hand;
-            this.tocRotateRight.Cursor = Cursors.Hand;
-            this.tocRotate180.Cursor = Cursors.Hand;
-            this.tocVerticalFlip.Cursor = Cursors.Hand;
-            this.tocHorizontalFlip.Cursor = Cursors.Hand;
-
-            this.tocCropButton.IsEnabled = true;
-            this.tocBrightnessSlider.IsEnabled = true;
-            this.tocContrastSlider.IsEnabled = true;
-            this.tocEditButton.IsEnabled = true;
-            this.tocBrightnessSlider.Value = 0;
-            this.tocContrastSlider.Value = 0;
-
-            Image img = new Image();
-            img.MouseLeftButtonDown += tocImage_MouseLeftButtonDown;
-            img.Margin = new System.Windows.Thickness(15, 5, 0, 5);
-            img.Source = bitmapSource;
-            img.Cursor = Cursors.Hand;
-            CheckBox checkBox = new CheckBox();
-            Grid gridWrapper = new Grid();
-            gridWrapper.Children.Add(checkBox);
-            gridWrapper.Children.Add(img);
-            checkBox.Checked += new RoutedEventHandler(TocCheckBox_Checked);
-            checkBox.Unchecked += new RoutedEventHandler(TocCheckBox_Unchecked);
-            checkBox.VerticalAlignment = VerticalAlignment.Center;
-            checkBox.IsChecked = true;
-            this.tocImagesList.Items.Add(gridWrapper);
-
-            this.selectedTocImage.Source = img.Source;
-            this.selectedTocImageThumbnail = img;
-            ImageTools.AddCropToElement(this.selectedTocImage, ref this.tocCropper);
+            ScanButtonClicked(DocumentType.Toc);
         }
 
-        // Includes particular TOC image in result
-        private void TocCheckBox_Checked(object sender, RoutedEventArgs e)
+        // Unified scan function
+        private void ScanButtonClicked(DocumentType documentType)
         {
-            CheckBox cb = e.Source as CheckBox;
-            Grid grid = cb.Parent as Grid;
-            foreach (var element in grid.Children)
+            DisableImageControllers();
+
+            // backup old cover
+            if (documentType == DocumentType.Cover && this.coverGuid != Guid.Empty)
             {
-                if (element is Image)
-                {
-                    Image img = new Image();
-                    img.Source = (element as Image).Source;
-                    img.Margin = new Thickness(0,5,0,0);
-                    this.confirmTocImagesList.Items.Add(img);
-                    this.ocrCheckBox.IsChecked = true;
-                }
+                string filePath = this.imagesFilePaths[this.coverGuid];
+                backupImage = new KeyValuePair<string, BitmapSource>(filePath,
+                ImageTools.LoadFullSizeFromFile(filePath));
+                SignalLoadedBackup();
             }
+
+            ScanImage(documentType);
+
+            EnableImageControllers();
+        }
+        #endregion
+
+        #region Load Image controllers
+
+        // Shows ExernalImageLoadWindow
+        private void LoadFromFile_Clicked(object sender, MouseButtonEventArgs e)
+        {
+            ExternalImageLoadWindow window = new ExternalImageLoadWindow();
+            window.Image_Clicked += new MouseButtonEventHandler(LoadButtonClicked);
+            window.ShowDialog();
         }
 
-        // Excludes particular TOC image from result
-        private void TocCheckBox_Unchecked(object sender, RoutedEventArgs e)
+        // Shows dialog for loading image
+        private void LoadButtonClicked(object sender, MouseButtonEventArgs e)
         {
-            Grid grid = ((e.Source as CheckBox).Parent as Grid);
-            foreach (var element in grid.Children)
+            DocumentType documentType;
+            if ((sender as Image).Name.Equals("coverImage"))
             {
-                if (element is Image)
-                {
-                    ImageSource src = (element as Image).Source;
-                    object itemToRemove = null;
-                    foreach (var item in this.confirmTocImagesList.Items)
-                    {
-                        if (item is Image && ((Image)item).Source.Equals(src))
-                        {
-                            itemToRemove = item;
-                        }
-                    }
-                    if (itemToRemove != null)
-                    {
-                        this.confirmTocImagesList.Items.Remove(itemToRemove);
-                    }
-                }
+                documentType = DocumentType.Cover;
             }
-            if(this.confirmTocImagesList.Items.Count == 0)
+            else
             {
-                this.ocrCheckBox.IsChecked = false;
+                documentType = DocumentType.Toc;
             }
-        }
 
-        // Sets new BitmapSource for toc image in confirmation page with same oldSource BitmapSource
-        private void SetConfirmationTocNewImageSource(ImageSource oldSource, ImageSource newSource)
-        {
-            foreach (var item in this.confirmTocImagesList.Items)
+            // backup old cover
+            if (documentType == DocumentType.Cover && this.coverGuid != Guid.Empty)
             {
-                if (item is Image && ((Image)item).Source.Equals(oldSource))
+                string filePath = this.imagesFilePaths[this.coverGuid];
+                backupImage = new KeyValuePair<string, BitmapSource>(filePath,
+                ImageTools.LoadFullSizeFromFile(filePath));
+                SignalLoadedBackup();
+            }
+
+            Microsoft.Win32.OpenFileDialog dlg = new Microsoft.Win32.OpenFileDialog();
+            dlg.Title = (documentType == DocumentType.Cover) ? "Načíst obálku" : "Načíst obsah";
+            dlg.Filter = "image files (bmp;png;jpeg;wmp;gif;tiff)|*.png;*.bmp;*.jpeg;*.jpg;*.wmp;*.gif;*.tiff;*.tif";
+            dlg.FilterIndex = 2;
+            bool? result = dlg.ShowDialog();
+
+            // Process open file dialog box results
+            if (result == true)
+            {
+                string fileName = dlg.FileName;
+                Guid guid = Guid.NewGuid();
+                while (this.imagesFilePaths.ContainsKey(guid))
                 {
-                    (item as Image).Source = newSource;
+                    guid = Guid.NewGuid();
                 }
+
+                DisableImageControllers();
+                LoadExternalImage(documentType, fileName, guid);
+                EnableImageControllers();
             }
         }
 
         // Loads image from external file
-        private void LoadExternalImage(bool isCover, string fileName)
+        private void LoadExternalImage(DocumentType documentType, string fileName, Guid guid)
         {
-            BitmapSource loadedBmpFrame = null;
-            string extension = fileName.Substring(fileName.LastIndexOf('.')+1).ToLower();
-            BitmapDecoder decoder = null;
+            string newFileName = Settings.TemporaryFolder +
+                ((documentType == DocumentType.Cover) ? "obalkyknih-cover_" : "obalkyknih-toc_")
+                + barcode + "_" + guid + ".tif";
+            BitmapImage bi = null;
+            Size originalSize;
             try
             {
-                switch (extension)
+                bi = ImageTools.LoadFullSizeFromFile(fileName);
+                originalSize = new Size(bi.PixelWidth, bi.PixelHeight);
+
+                if (fileName.Contains(Settings.TemporaryFolder))
                 {
-                    case "jpg":
-                    case "jpeg":
-                        decoder = new JpegBitmapDecoder(new Uri(fileName), BitmapCreateOptions.PreservePixelFormat,
-                            BitmapCacheOption.Default);
-                        break;
-                    case "png":
-                        decoder = new PngBitmapDecoder(new Uri(fileName), BitmapCreateOptions.PreservePixelFormat,
-                            BitmapCacheOption.Default);
-                        break;
-                    case "bmp":
-                        decoder = new BmpBitmapDecoder(new Uri(fileName), BitmapCreateOptions.PreservePixelFormat,
-                            BitmapCacheOption.Default);
-                        break;
-                    case "tif":
-                    case "tiff":
-                        decoder = new TiffBitmapDecoder(new Uri(fileName), BitmapCreateOptions.PreservePixelFormat,
-                            BitmapCacheOption.Default);
-                        break;
-                    case "gif":
-                        decoder = new GifBitmapDecoder(new Uri(fileName), BitmapCreateOptions.PreservePixelFormat,
-                            BitmapCacheOption.Default);
-                        break;
-                    case "wmp":
-                        decoder = new WmpBitmapDecoder(new Uri(fileName), BitmapCreateOptions.PreservePixelFormat,
-                            BitmapCacheOption.Default);
-                        break;
+                    File.Delete(fileName);
                 }
+
+                ImageTools.SaveToFile(bi, newFileName);
+
+                bi = ImageTools.LoadGivenSizeFromFile(newFileName, 800);
             }
-            catch (System.IO.FileFormatException)
+            catch (Exception ex)
             {
-                MessageBox.Show("Zvolený obrázek není možné načíst", "Chyba načítání obrázku", MessageBoxButton.OK,MessageBoxImage.Error);
+                MessageBox.Show("Nastala chyba během načítání souboru. Důvod: " + ex.Message, "Chyba načítání obrázku",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
             }
-            if (decoder != null)
-            {
-                loadedBmpFrame = decoder.Frames[0];
-                if (isCover)
-                {
-                    AddCoverImage(loadedBmpFrame);
 
+            this.imagesFilePaths.Add(guid, newFileName);
+            this.imagesOriginalSizes.Add(guid, originalSize);
+
+            if (documentType == DocumentType.Cover)
+            {
+                AddCoverImage(bi, guid);
+            }
+            else
+            {
+                AddTocImage(bi, guid);
+            }
+            GC.Collect();
+        }
+        #endregion
+
+        #region Main transformation controllers (rotation, deskew, crop, flip)
+
+        // Rotates selected image by 90 degrees left
+        private void RotateLeft_Clicked(object sender, MouseButtonEventArgs e)
+        {
+            if (this.selectedImageGuid == Guid.Empty)
+            {
+                return;
+            }
+
+            DisableImageControllers();
+
+            string filePath = this.imagesFilePaths[this.selectedImageGuid];
+            BitmapImage image = ImageTools.LoadFullSizeFromFile(filePath);
+            backupImage = new KeyValuePair<string, BitmapSource>(filePath, image);
+            SignalLoadedBackup();
+            BitmapSource output = ImageTools.RotateImage(image, -90);
+            ImageTools.SaveToFile(output, filePath);
+
+            if (this.selectedImageGuid == this.coverGuid)
+            {
+                this.selectedImage.Source = ImageTools.LoadGivenSizeFromFile(filePath, 800);
+                this.coverThumbnail.Source = this.selectedImage.Source;
+            }
+            else
+            {
+                this.selectedImage.Source = ImageTools.LoadGivenSizeFromFile(filePath, 800);
+                (LogicalTreeHelper.FindLogicalNode(this.tocThumbnailGridsDictionary[this.selectedImageGuid],
+                    "tocThumbnail") as Image).Source = this.selectedImage.Source;
+            }
+
+            // set new width and height
+            this.imagesOriginalSizes[this.selectedImageGuid] = new Size(output.PixelWidth, output.PixelHeight);
+
+            // clean memory
+            image = null;
+            output = null;
+            GC.Collect();
+
+            EnableImageControllers();
+        }
+
+        // Rotates selected image by 90 degrees right
+        private void RotateRight_Clicked(object sender, MouseButtonEventArgs e)
+        {
+            if (this.selectedImageGuid == Guid.Empty)
+            {
+                return;
+            }
+
+            DisableImageControllers();
+
+            string filePath = this.imagesFilePaths[this.selectedImageGuid];
+            BitmapImage image = ImageTools.LoadFullSizeFromFile(filePath);
+            backupImage = new KeyValuePair<string, BitmapSource>(filePath, image);
+            SignalLoadedBackup();
+            BitmapSource output = ImageTools.RotateImage(image, 90);
+            ImageTools.SaveToFile(output, filePath);
+
+            if (this.selectedImageGuid == this.coverGuid)
+            {
+                this.selectedImage.Source = ImageTools.LoadGivenSizeFromFile(filePath, 800);
+                this.coverThumbnail.Source = this.selectedImage.Source;
+            }
+            else
+            {
+                this.selectedImage.Source = ImageTools.LoadGivenSizeFromFile(filePath, 800);
+                (LogicalTreeHelper.FindLogicalNode(this.tocThumbnailGridsDictionary[this.selectedImageGuid],
+                    "tocThumbnail") as Image).Source = this.selectedImage.Source;
+            }
+
+            // set new width and height
+            this.imagesOriginalSizes[this.selectedImageGuid] = new Size(output.PixelWidth, output.PixelHeight);
+
+            // clean memory
+            image = null;
+            output = null;
+            GC.Collect();
+
+            EnableImageControllers();
+        }
+
+        // Rotates selected image by 180 degrees
+        private void Rotate180_Clicked(object sender, MouseButtonEventArgs e)
+        {
+            if (this.selectedImageGuid == Guid.Empty)
+            {
+                return;
+            }
+
+            DisableImageControllers();
+
+            string filePath = this.imagesFilePaths[this.selectedImageGuid];
+            BitmapImage image = ImageTools.LoadFullSizeFromFile(filePath);
+            backupImage = new KeyValuePair<string, BitmapSource>(filePath, image);
+            SignalLoadedBackup();
+            BitmapSource output = ImageTools.RotateImage(image, 180);
+            ImageTools.SaveToFile(output, filePath);
+
+            if (this.selectedImageGuid == this.coverGuid)
+            {
+                this.selectedImage.Source = ImageTools.LoadGivenSizeFromFile(filePath, 800);
+                this.coverThumbnail.Source = this.selectedImage.Source;
+            }
+            else
+            {
+                this.selectedImage.Source = ImageTools.LoadGivenSizeFromFile(filePath, 800);
+                (LogicalTreeHelper.FindLogicalNode(this.tocThumbnailGridsDictionary[this.selectedImageGuid],
+                    "tocThumbnail") as Image).Source = this.selectedImage.Source;
+            }
+
+            // clean memory
+            image = null;
+            output = null;
+            GC.Collect();
+
+            EnableImageControllers();
+        }
+
+        // Flips selected image horizontally
+        private void Flip_Clicked(object sender, MouseButtonEventArgs e)
+        {
+            if (this.selectedImageGuid == Guid.Empty)
+            {
+                return;
+            }
+
+            DisableImageControllers();
+
+            string filePath = this.imagesFilePaths[this.selectedImageGuid];
+            BitmapImage image = ImageTools.LoadFullSizeFromFile(filePath);
+            backupImage = new KeyValuePair<string, BitmapSource>(filePath, image);
+            SignalLoadedBackup();
+            BitmapSource output = ImageTools.FlipHorizontalImage(image);
+            ImageTools.SaveToFile(output, filePath);
+
+            if (this.selectedImageGuid == this.coverGuid)
+            {
+                this.selectedImage.Source = ImageTools.LoadGivenSizeFromFile(filePath, 800);
+                this.coverThumbnail.Source = this.selectedImage.Source;
+            }
+            else
+            {
+                this.selectedImage.Source = ImageTools.LoadGivenSizeFromFile(filePath, 800);
+                (LogicalTreeHelper.FindLogicalNode(this.tocThumbnailGridsDictionary[this.selectedImageGuid],
+                    "tocThumbnail") as Image).Source = this.selectedImage.Source;
+            }
+
+            // clean memory
+            image = null;
+            output = null;
+            GC.Collect();
+
+            EnableImageControllers();
+        }
+
+        // Crops selected image
+        private void Crop_Clicked(object sender, MouseButtonEventArgs e)
+        {
+            if (this.selectedImageGuid == Guid.Empty)
+            {
+                return;
+            }
+
+            DisableImageControllers();
+
+            string filePath = this.imagesFilePaths[this.selectedImageGuid];
+            BitmapImage image = ImageTools.LoadFullSizeFromFile(filePath);
+            backupImage = new KeyValuePair<string, BitmapSource>(filePath, image);
+            SignalLoadedBackup();
+            BitmapSource output = ImageTools.CropImage(image, this.cropper);
+            ImageTools.SaveToFile(output, filePath);
+            
+            this.selectedImage.Source = ImageTools.LoadGivenSizeFromFile(filePath, 800);
+                
+            if (this.selectedImageGuid == this.coverGuid)
+            {
+                this.coverThumbnail.Source = this.selectedImage.Source;
+            }
+            else
+            {
+                (LogicalTreeHelper.FindLogicalNode(this.tocThumbnailGridsDictionary[this.selectedImageGuid],
+                    "tocThumbnail") as Image).Source = this.selectedImage.Source;
+            }
+
+            // set new width and height
+            this.imagesOriginalSizes[this.selectedImageGuid] = new Size(output.PixelWidth, output.PixelHeight);
+
+            // clean memory
+            image = null;
+            output = null;
+            GC.Collect();
+
+            EnableImageControllers();
+        }
+
+        // Deskews selected image
+        private void Deskew_Clicked(object sender, MouseButtonEventArgs e)
+        {
+            if (this.selectedImageGuid == Guid.Empty)
+            {
+                return;
+            }
+
+            DisableImageControllers();
+
+            string filePath = this.imagesFilePaths[this.selectedImageGuid];
+            BitmapImage image = ImageTools.LoadFullSizeFromFile(filePath);
+            backupImage = new KeyValuePair<string, BitmapSource>(filePath, image);
+            SignalLoadedBackup();
+            ImageTools.DeskewImage(filePath, filePath);
+            BitmapSource output = ImageTools.LoadFullSizeFromFile(filePath);
+
+            if (this.selectedImageGuid == this.coverGuid)
+            {
+                this.selectedImage.Source = ImageTools.LoadGivenSizeFromFile(filePath, 800);
+                this.coverThumbnail.Source = this.selectedImage.Source;
+            }
+            else
+            {
+                this.selectedImage.Source = ImageTools.LoadGivenSizeFromFile(filePath, 800);
+                (LogicalTreeHelper.FindLogicalNode(this.tocThumbnailGridsDictionary[this.selectedImageGuid],
+                    "tocThumbnail") as Image).Source = this.selectedImage.Source;
+            }
+
+            // set new width and height
+            this.imagesOriginalSizes[this.selectedImageGuid] = new Size(output.PixelWidth, output.PixelHeight);
+
+            // clean memory
+            image = null;
+            output = null;
+            GC.Collect();
+
+            EnableImageControllers();
+        }
+        #endregion
+
+        #region Slider controllers
+
+        // Changes brightness of cover - only preview
+        private void BrightnessSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            if (this.sliderOriginalImage.Key != this.selectedImageGuid)
+            {
+                this.sliderOriginalImage = new KeyValuePair<Guid, BitmapSource>(
+                    this.selectedImageGuid, this.selectedImage.Source as BitmapSource);
+            }
+            BitmapSource tmp = ImageTools.ApplyContrast(this.sliderOriginalImage.Value, (int)this.contrastSlider.Value);
+            this.selectedImage.Source = ImageTools.ApplyBrightness(tmp, (int)e.NewValue);
+        }
+
+        // Changes contrast of cover - only preview
+        private void ContrastSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            if (this.sliderOriginalImage.Key != this.selectedImageGuid)
+            {
+                this.sliderOriginalImage = new KeyValuePair<Guid, BitmapSource>(
+                    this.selectedImageGuid, this.selectedImage.Source as BitmapSource);
+            }
+            BitmapSource tmp = ImageTools.ApplyContrast(this.sliderOriginalImage.Value, (int)e.NewValue);
+            this.selectedImage.Source = ImageTools.ApplyBrightness(tmp, (int)this.brightnessSlider.Value);
+        }
+
+        // Applies contrast and brightness changes to original image
+        private void SliderConfirmButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (this.selectedImageGuid == Guid.Empty ||
+                (this.brightnessSlider.Value == 0 && this.contrastSlider.Value == 0))
+            {
+                return;
+            }
+
+            DisableImageControllers();
+
+            string filePath = this.imagesFilePaths[this.selectedImageGuid];
+            BitmapImage image = ImageTools.LoadFullSizeFromFile(filePath);
+            backupImage = new KeyValuePair<string, BitmapSource>(filePath, image);
+            SignalLoadedBackup();
+            BitmapSource outputImage = ImageTools.ApplyBrightness(image, (int)this.brightnessSlider.Value);
+            outputImage = ImageTools.ApplyContrast(outputImage, (int)this.contrastSlider.Value);
+            ImageTools.SaveToFile(outputImage, filePath);
+
+            this.selectedImage.Source = ImageTools.LoadGivenSizeFromFile(filePath, 800);
+
+            if (this.selectedImageGuid == this.coverGuid)
+            {
+                this.coverThumbnail.Source = this.selectedImage.Source;
+            }
+            else
+            {
+                (LogicalTreeHelper.FindLogicalNode(this.tocThumbnailGridsDictionary[this.selectedImageGuid],
+                    "tocThumbnail") as Image).Source = this.selectedImage.Source;
+            }
+
+            // clean memory
+            image = null;
+            outputImage = null;
+            GC.Collect();
+
+            EnableImageControllers();
+        }
+        #endregion
+
+        #region Thumbnail controllers
+
+        // Adds new cover image
+        private void AddCoverImage(BitmapSource bitmapSource, Guid guid)
+        {
+            this.imagesFilePaths.Remove(this.coverGuid);
+            this.imagesOriginalSizes.Remove(this.coverGuid);
+            this.coverGuid = guid;
+            this.selectedImageGuid = guid;
+            // add bitmapSource to images
+            this.coverThumbnail.IsEnabled = true;
+            this.coverThumbnail.Source = bitmapSource;
+            this.selectedImage.Source = bitmapSource;
+            // set border
+            RemoveAllBorders();
+            HideAllThumbnailControls();
+            (this.coverThumbnail.Parent as Border).BorderBrush = (SolidColorBrush)(new BrushConverter().ConvertFrom("#6D8527"));
+            this.coverThumbnail.IsEnabled = true;
+            this.deleteCoverIcon.Visibility = Visibility.Visible;
+
+            // set crop
+            SetAppropriateCrop(Size.Empty, this.selectedImage.RenderSize);
+
+            EnableImageControllers();
+        }
+
+        // Adds new TOC image to list of TOC images
+        private void AddTocImage(BitmapSource bitmapSource, Guid guid)
+        {
+            #region construction of ListItem
+            // create thumbnail with following structure
+            //<ItemsControl>
+            //    <Grid>
+            //        <Image HorizontalAlignment="Left" Margin="0,-40,0,0" Stretch="Uniform" VerticalAlignment="Center" Source="/ObalkyKnih-scanner;component/Images/arrows/arrow_up.gif" Width="23"/>
+            //        <Image HorizontalAlignment="Left" Margin="0,45,0,0" Stretch="Uniform" VerticalAlignment="Center" Source="/ObalkyKnih-scanner;component/Images/delete_24.png" Width="23"/>
+            //        <Image HorizontalAlignment="Left" Margin="0,0,0,0" Stretch="Uniform" VerticalAlignment="Center" Source="/ObalkyKnih-scanner;component/Images/arrows/arrow_down.gif" Width="23"/>
+            //        <Border>
+            //            <Image HorizontalAlignment="Left" Margin="25,0,0,0" Stretch="Uniform" VerticalAlignment="Top" Source="/ObalkyKnih-scanner;component/Images/default-icon.png" />
+            //        </Border>
+            //    </Grid>
+            //</ItemsControl>
+            Image tocImage = new Image();
+            tocImage.Name = "tocThumbnail";
+            tocImage.MouseLeftButtonDown += Thumbnail_Clicked;
+            tocImage.Source = bitmapSource;
+            tocImage.Cursor = Cursors.Hand;
+            tocImage.MouseEnter += Icon_MouseEnter;
+            tocImage.MouseLeave += Icon_MouseLeave;
+
+            Border tocImageBorder = new Border();
+            tocImageBorder.BorderThickness = new Thickness(4);
+            //green border
+            tocImageBorder.BorderBrush = (SolidColorBrush)(new BrushConverter().ConvertFrom("#6D8527"));
+            tocImageBorder.Margin = new Thickness(50, 0, 50, 0);
+
+            Image deleteImage = new Image();
+            deleteImage.Name = "deleteThumbnail";
+            deleteImage.VerticalAlignment = VerticalAlignment.Top;
+            deleteImage.HorizontalAlignment = HorizontalAlignment.Right;
+            deleteImage.Source = new BitmapImage(new Uri("/ObalkyKnih-scanner;component/Images/ok-icon-delete.png", UriKind.Relative));
+            deleteImage.Margin = new Thickness(0, 0, 26, 0);
+            deleteImage.Width = 18;
+            deleteImage.Stretch = Stretch.None;
+            deleteImage.Cursor = Cursors.Hand;
+            deleteImage.MouseLeftButtonDown += TocThumbnail_Delete;
+
+            Image moveUpImage = new Image();
+            moveUpImage.Name = "moveUpThumbnail";
+            moveUpImage.VerticalAlignment = VerticalAlignment.Top;
+            moveUpImage.HorizontalAlignment = HorizontalAlignment.Right;
+            moveUpImage.Source = new BitmapImage(new Uri("/ObalkyKnih-scanner;component/Images/ok-icon-up.png", UriKind.Relative));
+            moveUpImage.Margin = new Thickness(0, 25, 26, 0);
+            moveUpImage.Stretch = Stretch.None;
+            moveUpImage.Width = 18;
+            moveUpImage.Cursor = Cursors.Hand;
+            moveUpImage.MouseLeftButtonDown += TocThumbnail_MoveUp;
+            if (!this.tocImagesList.HasItems)
+            {
+                moveUpImage.Visibility = Visibility.Hidden;
+            }
+            
+
+            Image moveDownImage = new Image();
+            moveDownImage.Name = "moveDownThumbnail";
+            moveDownImage.VerticalAlignment = VerticalAlignment.Top;
+            moveDownImage.HorizontalAlignment = HorizontalAlignment.Right;
+            moveDownImage.Source = new BitmapImage(new Uri("/ObalkyKnih-scanner;component/Images/ok-icon-down.png", UriKind.Relative));
+            moveDownImage.Margin = new Thickness(0, 50, 26, 0);
+            moveDownImage.Width = 18;
+            moveDownImage.Stretch = Stretch.None;
+            moveDownImage.Cursor = Cursors.Hand;
+            moveDownImage.MouseLeftButtonDown += TocThumbnail_MoveDown;
+            moveDownImage.Visibility = Visibility.Hidden;
+
+            Grid gridWrapper = new Grid();
+            gridWrapper.Margin = new Thickness(0, 10, 0, 10);
+            gridWrapper.Name = "guid_" + guid.ToString().Replace("-", "");
+            tocImageBorder.Child = tocImage;
+            gridWrapper.Children.Add(tocImageBorder);
+            gridWrapper.Children.Add(moveUpImage);
+            gridWrapper.Children.Add(moveDownImage);
+            gridWrapper.Children.Add(deleteImage);
+            #endregion
+
+            // edit previously last item - enable moveDown arrow
+            if (this.tocImagesList.HasItems)
+            {
+                var lastItem = this.tocImagesList.Items.OfType<Grid>().LastOrDefault();
+                foreach (Image item in lastItem.Children.OfType<Image>())
+                {
+                    if (item.Name.Contains("moveDownThumbnail"))
+                    {
+                        item.IsEnabled = true;
+                    }
+                }
+            }
+
+            RemoveAllBorders();
+            HideAllThumbnailControls();
+
+            // add to list
+            this.tocImagesList.Items.Add(gridWrapper);
+            this.tocImagesList.SelectedItem = gridWrapper;
+
+            // assign "pointers" to these elements into dictionaries
+            this.selectedImageGuid = guid;
+            this.selectedImage.Source = bitmapSource;
+            this.tocThumbnailGridsDictionary.Add(guid, gridWrapper);
+            SetAppropriateCrop(Size.Empty, this.selectedImage.RenderSize);
+
+            string pages = "";
+            int pagesNumber = this.tocImagesList.Items.Count;
+            switch (pagesNumber)
+            {
+                case 1:
+                    pages = "strana";
+                    break;
+                case 2:
+                case 3:
+                case 4:
+                    pages = "strany";
+                    break;
+                default:
+                    pages = "stran";
+                    break;
+            }
+            this.tocPagesNumber.Content = pagesNumber + " " + pages;
+            EnableImageControllers();
+        }
+
+        // Removes colored border from all thumbnails
+        private void RemoveAllBorders()
+        {
+            (this.coverThumbnail.Parent as Border).BorderBrush = Brushes.Transparent;
+            foreach (var grid in this.tocThumbnailGridsDictionary.Values)
+            {
+                grid.Children.OfType<Border>().First().BorderBrush = Brushes.Transparent;
+            }
+        }
+
+        // Hides all thumbnail controls (arrows and delete icon)
+        private void HideAllThumbnailControls()
+        {
+            this.deleteCoverIcon.Visibility = Visibility.Hidden;
+            foreach (var grid in this.tocThumbnailGridsDictionary.Values)
+            {
+                foreach (var imageControl in grid.Children.OfType<Image>())
+                {
+                    imageControl.Visibility = Visibility.Hidden;
+                }
+            }
+        }
+
+        // Makes appropriate controls of toc thumbnail visible
+        private void SetThumbnailControls(Guid guid)
+        {
+            Grid grid = this.tocThumbnailGridsDictionary[guid];
+            // set delete icon visible
+            (LogicalTreeHelper.FindLogicalNode(grid, "deleteThumbnail") as Image).Visibility = Visibility.Visible;
+            Image moveUp = LogicalTreeHelper.FindLogicalNode(grid, "moveUpThumbnail") as Image;
+            Image moveDown = LogicalTreeHelper.FindLogicalNode(grid, "moveDownThumbnail") as Image;
+
+            if(!grid.Equals(this.tocImagesList.Items.GetItemAt(0)))
+            {
+                moveUp.Visibility = Visibility.Visible;
+            }
+
+            if (!grid.Equals(this.tocImagesList.Items.GetItemAt(this.tocImagesList.Items.Count - 1)))
+            {
+                moveDown.Visibility = Visibility.Visible;
+            }
+
+        }
+
+        // Sets the selectedImage
+        private void Thumbnail_Clicked(object sender, MouseButtonEventArgs e)
+        {
+            Image image = sender as Image;
+            this.selectedImage.Source = image.Source;
+            SetAppropriateCrop(Size.Empty, this.selectedImage.RenderSize);
+
+            RemoveAllBorders();
+            HideAllThumbnailControls();
+
+            // find out if new image is toc or cover and color the border
+            if (image.Name.Equals("coverThumbnail"))
+            {
+                this.selectedImageGuid = this.coverGuid;
+                (image.Parent as Border).BorderBrush = (SolidColorBrush)(new BrushConverter().ConvertFrom("#6D8527"));
+                this.deleteCoverIcon.Visibility = Visibility.Visible;
+            }
+            else
+            {
+                Border border = (sender as Image).Parent as Border;
+                string guidName = (border.Parent as Grid).Name;
+                foreach (var key in this.imagesFilePaths.Keys)
+                {
+                    if (guidName.Contains(key.ToString().Replace("-", "")))
+                    {
+                        this.selectedImageGuid = key;
+                    }
+                }
+                border.BorderBrush = (SolidColorBrush)(new BrushConverter().ConvertFrom("#6D8527"));
+                SetThumbnailControls(this.selectedImageGuid);
+            }
+
+            EnableImageControllers();
+        }        
+
+        // Sets selected TOC image from list of all TOC images
+        private void TocThumbnail_MoveUp(object sender, MouseButtonEventArgs e)
+        {
+            int selectedIndex = this.tocImagesList.SelectedIndex;
+
+            // check sanity of moving up
+            if (selectedIndex <= 0 || selectedIndex > this.tocImagesList.Items.Count - 1)
+            {
+                return;
+            }
+
+            // get the grid
+            var tmp = this.tocImagesList.Items.GetItemAt(selectedIndex);
+            // move it
+            this.tocImagesList.Items.RemoveAt(selectedIndex);
+            this.tocImagesList.Items.Insert(selectedIndex - 1, tmp);
+
+            this.tocImagesList.SelectedIndex = selectedIndex - 1;
+
+            HideAllThumbnailControls();
+            SetThumbnailControls(this.selectedImageGuid);
+        }
+
+        // Sets selected TOC image from list of all TOC images
+        private void TocThumbnail_MoveDown(object sender, MouseButtonEventArgs e)
+        {
+            int selectedIndex = this.tocImagesList.SelectedIndex;
+
+            // check sanity of moving down
+            if (selectedIndex < 0 || selectedIndex >= this.tocImagesList.Items.Count - 1)
+            {
+                return;
+            }
+
+            // get the grid
+            var tmp = this.tocImagesList.Items.GetItemAt(selectedIndex);
+            // move it
+            this.tocImagesList.Items.RemoveAt(selectedIndex);
+            this.tocImagesList.Items.Insert(selectedIndex + 1, tmp);
+
+            this.tocImagesList.SelectedIndex = selectedIndex + 1;
+
+            HideAllThumbnailControls();
+            SetThumbnailControls(this.selectedImageGuid);
+        }
+
+        //Removes image from thumbnails
+        private void TocThumbnail_Delete(object sender, MouseButtonEventArgs e)
+        {
+            int selectedIndex = this.tocImagesList.SelectedIndex;
+            // sanity check
+            if (selectedIndex < 0 || selectedIndex >= this.tocImagesList.Items.Count)
+            {
+                return;
+            }
+
+            var result = MessageBox.Show("Opravdu chcete odstranit vybraný obsah?", "Potvrzení odstranění",
+                MessageBoxButton.YesNo, MessageBoxImage.Question);
+            if (result == MessageBoxResult.Yes)
+            {
+                DisableImageControllers();
+
+                Guid guid = (from record in tocThumbnailGridsDictionary.ToList()
+                             where record.Value.Equals(this.tocImagesList.Items.GetItemAt(selectedIndex))
+                             select record.Key).First();
+
+                if (guid != Guid.Empty)
+                {
+                    BitmapImage tmpImage = ImageTools.LoadFullSizeFromFile(this.imagesFilePaths[guid]);
+                    backupImage = new KeyValuePair<string, BitmapSource>(this.imagesFilePaths[guid], tmpImage);
+                    SignalLoadedBackup();
+                }
+
+                try
+                {
+                    File.Delete(this.imagesFilePaths[guid]);
+                }
+                catch (Exception)
+                {
+                    MessageBox.Show("Nebylo možné zmazat soubor z disku.", "Chyba mazání souboru.", MessageBoxButton.OK,
+                        MessageBoxImage.Error);
+                }
+
+                this.tocImagesList.Items.RemoveAt(selectedIndex);
+                this.tocThumbnailGridsDictionary.Remove(guid);
+                this.imagesFilePaths.Remove(guid);
+                this.imagesOriginalSizes.Remove(guid);
+
+                HideAllThumbnailControls();
+
+                if (!this.tocImagesList.HasItems)
+                {
+                    if (this.coverGuid == Guid.Empty)
+                    {
+                        // set default image
+                        this.selectedImageGuid = Guid.Empty;
+                        this.selectedImage.Source = new BitmapImage(
+                            new Uri("/ObalkyKnih-scanner;component/Images/default-icon.png", UriKind.Relative));
+                    }
+                    else
+                    {
+                        this.selectedImageGuid = this.coverGuid;
+                        (this.coverThumbnail.Parent as Border).BorderBrush = (SolidColorBrush)(new BrushConverter()
+                            .ConvertFrom("#6D8527"));
+                        this.deleteCoverIcon.Visibility = Visibility.Visible;
+                        this.selectedImage.Source = coverThumbnail.Source;
+
+                        EnableImageControllers();
+                    }
                 }
                 else
                 {
-                    AddTocImage(loadedBmpFrame);
+
+                    Grid grid = this.tocImagesList.Items.GetItemAt(tocImagesList.Items.Count - 1) as Grid;
+                    Image thumbnail = LogicalTreeHelper.FindLogicalNode(grid, "tocThumbnail") as Image;
+                    this.selectedImage.Source = thumbnail.Source;
+                    foreach (var guidKey in this.imagesFilePaths.Keys)
+                    {
+                        if (grid.Name.Contains(guidKey.ToString().Replace("-", "")))
+                        {
+                            this.selectedImageGuid = guidKey;
+                        }
+                    }
+
+                    SetThumbnailControls(this.selectedImageGuid);
+                    this.tocThumbnailGridsDictionary[this.selectedImageGuid].Children.OfType<Border>().First()
+                        .BorderBrush = (SolidColorBrush)(new BrushConverter().ConvertFrom("#6D8527"));
+
+                    this.tocImagesList.SelectedItem = this.tocThumbnailGridsDictionary[this.selectedImageGuid];
+                    EnableImageControllers();
+                }
+
+                // set numer of pages
+                string pages = "";
+                int pagesNumber = this.tocImagesList.Items.Count;
+                switch (pagesNumber)
+                {
+                    case 1:
+                        pages = "strana";
+                        break;
+                    case 2:
+                    case 3:
+                    case 4:
+                        pages = "strany";
+                        break;
+                    default:
+                        pages = "stran";
+                        break;
+                }
+                this.tocPagesNumber.Content = pagesNumber + " " + pages;
+            }
+        }
+
+        private void CoverThumbnail_Delete(object sender, MouseButtonEventArgs e)
+        {
+            var result = MessageBox.Show("Opravdu chcete odstranit vybraný obsah?", "Potvrzení odstranění",
+                MessageBoxButton.YesNo, MessageBoxImage.Question);
+            if (result == MessageBoxResult.Yes)
+            {
+                DisableImageControllers();
+                this.imagesFilePaths.Remove(this.coverGuid);
+                this.imagesOriginalSizes.Remove(this.coverGuid);
+                this.coverGuid = Guid.Empty;
+                this.coverThumbnail.IsEnabled = false;
+                this.deleteCoverIcon.Visibility = Visibility.Hidden;
+                this.coverThumbnail.Source = new BitmapImage(
+                        new Uri("/ObalkyKnih-scanner;component/Images/default-icon.png", UriKind.Relative));
+
+                if (this.tocThumbnailGridsDictionary.Keys.Count > 0)
+                {
+                    this.selectedImageGuid = this.tocThumbnailGridsDictionary.Keys.Last();
+                    this.selectedImage.Source = (LogicalTreeHelper.FindLogicalNode(
+                        this.tocThumbnailGridsDictionary.Values.Last(), "tocThumbnail") as Image).Source;
+
+                    this.tocImagesList.SelectedItem = this.tocThumbnailGridsDictionary[this.selectedImageGuid];
+                    this.tocThumbnailGridsDictionary[this.selectedImageGuid].Children.OfType<Border>().First()
+                        .BorderBrush = (SolidColorBrush)(new BrushConverter().ConvertFrom("#6D8527"));
+                    SetThumbnailControls(this.selectedImageGuid);
+
+                    EnableImageControllers();
+                }
+                else
+                {
+                    // set default image
+                    this.selectedImageGuid = Guid.Empty;
+                    this.selectedImage.Source = new BitmapImage(
+                        new Uri("/ObalkyKnih-scanner;component/Images/default-icon.png", UriKind.Relative));
                 }
             }
-        }        
+        }
         #endregion
+
+        #region Undo/Redo
+        internal void UndoLastStep()
+        {
+            bool isDeleted = false;
+            string filePathToRedo = null;
+            bool isCover = this.backupImage.Key.Contains("cover");
+
+            // find type of undo (changed file or deleted file), if = changed
+            if (this.imagesFilePaths.ContainsValue(this.backupImage.Key))
+            {
+                filePathToRedo = this.backupImage.Key;
+            }
+            // else = file was deleted
+            else
+            {
+                isDeleted = true;
+                if (isCover && this.coverGuid != Guid.Empty)
+                {
+                    filePathToRedo = this.imagesFilePaths[this.coverGuid];
+                }
+            }
+
+            if (filePathToRedo != null)
+            {
+                this.redoImage = new KeyValuePair<string,BitmapSource>(filePathToRedo,
+                    ImageTools.LoadFullSizeFromFile(filePathToRedo));
+            }
+
+            ImageTools.SaveToFile(this.backupImage.Value, this.backupImage.Key);
+
+            BitmapImage newImage = ImageTools.LoadGivenSizeFromFile(this.backupImage.Key, 800);
+
+            if (isDeleted)
+            {
+                Guid guid = new Guid();
+                while (this.imagesFilePaths.ContainsKey(guid))
+                {
+                    guid = new Guid();
+                }
+                LoadExternalImage(isCover ? DocumentType.Cover : DocumentType.Toc, this.backupImage.Key, guid);
+            }
+            else
+            {
+                Guid guid = Guid.Empty;
+                foreach (var record in this.imagesFilePaths)
+                {
+                    if (record.Value.Equals(this.backupImage.Key))
+                    {
+                        guid = record.Key;
+                    }
+                }
+                this.imagesOriginalSizes.Remove(guid);
+                this.imagesOriginalSizes.Add(guid, new Size(this.backupImage.Value.PixelWidth, this.backupImage.Value.PixelHeight));
+
+                if (this.selectedImageGuid == guid)
+                {
+                    this.selectedImage.Source = newImage;
+                }
+
+                if (isCover)
+                {
+                    this.coverThumbnail.Source = newImage;
+                }
+                else
+                {
+                    (LogicalTreeHelper.FindLogicalNode(this.tocThumbnailGridsDictionary[guid],
+                    "tocThumbnail") as Image).Source = newImage;
+                }
+            }
+
+            this.backupImage = new KeyValuePair<string, BitmapSource>(null, null);
+            (Window.GetWindow(this) as MainWindow).DeactivateUndo();
+            if (filePathToRedo != null)
+            {
+                (Window.GetWindow(this) as MainWindow).ActivateRedo();
+            }
+            GC.Collect();
+        }
+
+        internal void RedoLastStep()
+        {
+            bool isCover = this.redoImage.Key.Contains("cover");
+
+            this.backupImage = new KeyValuePair<string, BitmapSource>(this.redoImage.Key,
+                ImageTools.LoadFullSizeFromFile(this.redoImage.Key));
+
+            ImageTools.SaveToFile(this.redoImage.Value, this.redoImage.Key);
+
+            BitmapImage newImage = ImageTools.LoadGivenSizeFromFile(this.redoImage.Key, 800);
+
+            Guid guid = Guid.Empty;
+            foreach (var record in this.imagesFilePaths)
+            {
+                if (record.Value.Equals(this.redoImage.Key))
+                {
+                    guid = record.Key;
+                }
+            }
+            this.imagesOriginalSizes.Remove(guid);
+            this.imagesOriginalSizes.Add(guid, new Size(this.redoImage.Value.PixelWidth, this.redoImage.Value.PixelHeight));
+
+            if (this.selectedImageGuid == guid)
+            {
+                this.selectedImage.Source = newImage;
+            }
+
+            if (isCover)
+            {
+                this.coverThumbnail.Source = newImage;
+            }
+            else
+            {
+                (LogicalTreeHelper.FindLogicalNode(this.tocThumbnailGridsDictionary[guid],
+                "tocThumbnail") as Image).Source = newImage;
+            }
+
+            this.redoImage = new KeyValuePair<string, BitmapSource>(null, null);
+            (Window.GetWindow(this) as MainWindow).DeactivateRedo();
+            (Window.GetWindow(this) as MainWindow).ActivateUndo();
+        }
+        #endregion
+
+        // Sends to ObalkyKnih
+        private void SendButton_Click(object sender, RoutedEventArgs e)
+        {
+            this.controlTabItem.IsEnabled = false;
+            SendToObalkyKnih();
+        }
+
+        // Creates hover effect for transormation controllers
+        private void Icon_MouseEnter(object sender, EventArgs e)
+        {
+            (sender as UIElement).Opacity = 0.7;
+        }
+
+        // Creates hover effect for transormation controllers
+        private void Icon_MouseLeave(object sender, EventArgs e)
+        {
+            (sender as UIElement).Opacity = 1;
+        }
+
+        // Disables image editing controllers
+        private void DisableImageControllers()
+        {
+            Mouse.OverrideCursor = Cursors.Wait;
+            this.rotateRightIcon.IsEnabled = false;
+            this.rotate180Icon.IsEnabled = false;
+            this.deskewIcon.IsEnabled = false;
+            this.flipIcon.IsEnabled = false;
+            this.cropIcon.IsEnabled = false;
+            this.brightnessSlider.IsEnabled = false;
+            this.contrastSlider.IsEnabled = false;
+            this.sliderConfirmButton.IsEnabled = false;
+        }
+
+        // Enables image editing controllers
+        private void EnableImageControllers()
+        {
+            Mouse.OverrideCursor = null;
+            this.rotateLeftIcon.IsEnabled = true;
+            this.rotateRightIcon.IsEnabled = true;
+            this.rotate180Icon.IsEnabled = true;
+            this.deskewIcon.IsEnabled = true;
+            this.flipIcon.IsEnabled = true;
+            this.cropIcon.IsEnabled = true;
+            this.brightnessSlider.IsEnabled = true;
+            this.contrastSlider.IsEnabled = true;
+            this.sliderConfirmButton.IsEnabled = true;
+            this.brightnessSlider.Value = 0;
+            this.contrastSlider.Value = 0;
+        }
+
+        private void SelectedImage_SizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            SetAppropriateCrop(e.PreviousSize, e.NewSize);
+        }
+
+        private void SetAppropriateCrop(Size previousSize, Size newSize)
+        {
+            if (this.selectedImageGuid != Guid.Empty)
+            {
+                // Coordinates where started previous cropZone
+                Point previousCropZoneFrom = (this.cropper == null) ? new Point() :
+                    new Point(this.cropper.ClippingRectangle.X, this.cropper.ClippingRectangle.Y);
+                // Size of previous cropZone
+                Size previousCropZoneSize = (this.cropper == null) ? Size.Empty :
+                    new Size(this.cropper.ClippingRectangle.Width, this.cropper.ClippingRectangle.Height);
+                // size of cropZone in full (not scaled) image
+                Size originalSizeCropZone = (this.cropper == null) ? Size.Empty : this.cropper.CropZone;
+                // new display size of image (pixel size of image as displayed on screen)
+                Size newDisplayedImageSize = newSize;
+                // previous display size of image (pixel size of image as was displayed on screen previously)
+                Size previousDisplayedImageSize = previousSize;
+                // real size of image (pixel size of this image on disk)
+                Size originalSourceSize = this.imagesOriginalSizes[this.selectedImageGuid];
+                // display size of cropZone, (pixel size of cropZone as displayed on screen) 
+
+                Size newCropZoneSize;
+                Point newCropZoneFrom = new Point(0, 0);
+
+                if (originalSizeCropZone.Equals(Size.Empty) || originalSizeCropZone.Equals(new Size(0, 0)))
+                {
+                    if (previousSize == Size.Empty)
+                    {
+                        newCropZoneSize = new Size(newDisplayedImageSize.Width, newDisplayedImageSize.Height);
+                    }
+                    else
+                    {
+                        newCropZoneSize = new Size((newDisplayedImageSize.Width / previousDisplayedImageSize.Width) * previousCropZoneSize.Width,
+                            (newDisplayedImageSize.Height / previousDisplayedImageSize.Height) * previousCropZoneSize.Height);
+                        newCropZoneFrom = new Point((newDisplayedImageSize.Width / previousDisplayedImageSize.Width) * previousCropZoneFrom.X,
+                            (newDisplayedImageSize.Height / previousDisplayedImageSize.Height) * previousCropZoneFrom.Y);
+                    }
+                }
+                else
+                {
+                    newCropZoneSize = new Size((newDisplayedImageSize.Width / originalSourceSize.Width) * originalSizeCropZone.Width,
+                        (newDisplayedImageSize.Height / originalSourceSize.Height) * originalSizeCropZone.Height);
+                }
+
+                // limit size to size of image
+                if (newCropZoneSize.Height > newSize.Height)
+                {
+                    newCropZoneSize.Height = newSize.Height;
+                }
+
+                if (newCropZoneSize.Width > newSize.Width)
+                {
+                    newCropZoneSize.Width = newSize.Width;
+                }
+
+                ImageTools.AddCropToElement(this.selectedImage, ref this.cropper,
+                        new Rect(newCropZoneFrom, newCropZoneSize));
+            }
+        }
+
+        private void SignalLoadedBackup()
+        {
+            this.redoImage = new KeyValuePair<string,BitmapSource>(null, null);
+            (Window.GetWindow(this) as MainWindow).ActivateUndo();
+            (Window.GetWindow(this) as MainWindow).DeactivateRedo();
+        }
+        #endregion
+
+        #region control tab controls
+        
+        // Shows windows for barcode
+        private void controlNewUnitButton_Click(object sender, RoutedEventArgs e)
+        {
+            (Window.GetWindow(this) as MainWindow).ShowNewUnitWindow();
+        }
+
+        private void FillControlMetadata()
+        {
+            int counter = 0;
+
+            this.controlTitle.Content = this.titleTextBox.Text;
+            this.controlAuthors.Content = this.authorTextBox.Text;
+            this.controlYear.Content = this.yearTextBox.Text;
+
+            #region identifiers
+            if (!string.IsNullOrWhiteSpace(this.isbnTextBox.Text))
+            {
+                CreateIdentifierLabel("ISBN", this.isbnTextBox.Text, counter);
+                counter++;
+            }
+
+            if (!string.IsNullOrWhiteSpace(this.issnTextBox.Text))
+            {
+                CreateIdentifierLabel("ISSN", this.issnTextBox.Text, counter);
+                counter++;
+            }
+
+            if (!string.IsNullOrWhiteSpace(this.cnbTextBox.Text))
+            {
+                CreateIdentifierLabel("ČNB", this.cnbTextBox.Text, counter);
+                counter++;
+            }
+
+            if (!string.IsNullOrWhiteSpace(this.oclcTextBox.Text))
+            {
+                CreateIdentifierLabel("OCLC", this.oclcTextBox.Text, counter);
+                counter++;
+            }
+            if (!string.IsNullOrWhiteSpace(this.eanTextBox.Text))
+            {
+                CreateIdentifierLabel("EAN", this.eanTextBox.Text, counter);
+                counter++;
+            }
+
+            if (!string.IsNullOrWhiteSpace(this.urnNbnTextBox.Text))
+            {
+                CreateIdentifierLabel("URN:NBN", this.urnNbnTextBox.Text, counter);
+                counter++;
+            }
+
+            if (!string.IsNullOrWhiteSpace(this.siglaTextBox.Text))
+            {
+                CreateIdentifierLabel("Vlastní", Settings.Sigla + "-" + this.siglaTextBox.Text, counter);
+                counter++;
+            }            
+            #endregion
+        }
+
+        private void CreateIdentifierLabel(string identifierName, string identifierValue, int counter)
+        {
+            Label label = new Label();
+            label.FontFamily = (FontFamily)(new FontFamilyConverter()).ConvertFromInvariantString("Arial");
+            label.Foreground = (SolidColorBrush)(new BrushConverter().ConvertFrom("#858585"));
+            label.Margin = new Thickness(0, counter * 20, 0, 0);
+            label.Content = identifierName;
+
+            Label label2 = new Label();
+            label2.FontFamily = (FontFamily)(new FontFamilyConverter()).ConvertFromInvariantString("Arial");
+            label2.Foreground = (SolidColorBrush)(new BrushConverter().ConvertFrom("#cecece"));
+            label2.Margin = new Thickness(70, counter * 20, 0, 0);
+            label2.Content = identifierValue;
+
+            this.controlIdentifiersGrid.Children.Add(label);
+            this.controlIdentifiersGrid.Children.Add(label2);
+        }
+        #endregion
+
+        private void tabControl_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (this.tabControl.SelectedItem != null &&
+                "scanningTabItem".Equals((this.tabControl.SelectedItem as TabItem).Name))
+            {
+                if (this.backupImage.Key != null)
+                {
+                    (Window.GetWindow(this) as MainWindow).ActivateUndo();
+                }
+
+                if (this.redoImage.Key != null)
+                {
+                    (Window.GetWindow(this) as MainWindow).ActivateRedo();
+                }
+            }
+            else
+            {
+                (Window.GetWindow(this) as MainWindow).DeactivateUndo();
+                (Window.GetWindow(this) as MainWindow).DeactivateRedo();
+            }
+        }
     }
 
+    #region Custom WPF controls
+
+    /// <summary>
+    /// Custom ListView - changed not to catch events with arrow keys and scrolling,
+    /// because of rotation key bindings
+    /// </summary>
+    public class MyListView : ListView
+    {
+        protected override void OnMouseWheel(MouseWheelEventArgs e)
+        {
+            return;
+        }
+        protected override void OnPreviewMouseWheel(MouseWheelEventArgs e)
+        {
+            e.Handled = true;
+
+            var e2 = new MouseWheelEventArgs(e.MouseDevice,e.Timestamp,e.Delta);
+            e2.RoutedEvent = UIElement.MouseWheelEvent;
+            this.RaiseEvent(e2);
+        }
+
+        protected override void OnKeyDown(KeyEventArgs e)
+        {
+            if (e.Key == Key.Left || e.Key == Key.Right
+                    || e.Key == Key.Up || e.Key == Key.Down)
+            {
+                return;
+            }
+            base.OnKeyDown(e);
+        }
+    }
     /// <summary>
     /// Custom ScrollViewer - changed not to catch events with arrow keys,
     /// because of rotation key bindings
@@ -1893,4 +2562,23 @@ namespace ScannerClient_obalkyknih
             base.OnKeyDown(e);
         }
     }
+
+    /// <summary>
+    /// Custom GridSplitter - changed not to catch events with arrow keys,
+    /// because of rotation key bindings
+    /// </summary>
+    public class MyGridSplitter : GridSplitter
+    {
+        protected override void OnKeyDown(KeyEventArgs e)
+        {
+            if (e.KeyboardDevice.Modifiers == ModifierKeys.Control)
+            {
+                if (e.Key == Key.Left || e.Key == Key.Right
+                    || e.Key == Key.Up || e.Key == Key.Down)
+                    return;
+            }
+            base.OnKeyDown(e);
+        }
+    }
+    #endregion
 }

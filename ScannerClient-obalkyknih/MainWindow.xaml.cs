@@ -19,7 +19,8 @@ namespace ScannerClient_obalkyknih
     {
         #region key bindings commands
         public static RoutedCommand newUnitCommand = new RoutedCommand();
-        public static RoutedCommand closeCommand = new RoutedCommand();
+        public static RoutedCommand undoCommand = new RoutedCommand();
+        public static RoutedCommand redoCommand = new RoutedCommand();
         #endregion
 
         //downloads info about update on background
@@ -41,6 +42,11 @@ namespace ScannerClient_obalkyknih
         {
             InitializeComponent();
             InitializeBackgroundWorkers();
+            if (!Directory.Exists(Settings.TemporaryFolder))
+            {
+                Directory.CreateDirectory(Settings.TemporaryFolder);
+            }
+
             //only here are settings loaded from file
             Settings.ReloadSettings();
             this.webClient.DownloadFileCompleted += new AsyncCompletedEventHandler(DownloadFileCompleted);
@@ -49,7 +55,6 @@ namespace ScannerClient_obalkyknih
             this.programVersionLabel.Content = this.updateChecker.Version.Major.ToString()
                 + "." + this.updateChecker.Version.Minor.ToString();
 
-            this.versionStateLabel.Foreground = Brushes.Black;
             this.versionStateLabel.Content = "Získávání informací";
             this.updateInfoBackgroundWorker.RunWorkerAsync();
             
@@ -61,12 +66,19 @@ namespace ScannerClient_obalkyknih
             KeyGesture kg = new KeyGesture(Key.N, ModifierKeys.Control);
             InputBinding ib = new InputBinding(newUnitCommand, kg);
             this.InputBindings.Add(ib);
-
-            //close - Ctrl + X
-            cb = new CommandBinding(closeCommand, CloseExecuted, CloseCanExecute);
+            
+            //undo - Ctrl + Z
+            cb = new CommandBinding(undoCommand, UndoExecuted, UndoCanExecute);
             this.CommandBindings.Add(cb);
-            kg = new KeyGesture(Key.X, ModifierKeys.Control);
-            ib = new InputBinding(closeCommand, kg);
+            kg = new KeyGesture(Key.Z, ModifierKeys.Control);
+            ib = new InputBinding(undoCommand, kg);
+            this.InputBindings.Add(ib);
+            
+            //redo - Ctrl + Y
+            cb = new CommandBinding(redoCommand, RedoExecuted, RedoCanExecute);
+            this.CommandBindings.Add(cb);
+            kg = new KeyGesture(Key.Y, ModifierKeys.Control);
+            ib = new InputBinding(redoCommand, kg);
             this.InputBindings.Add(ib);
             #endregion
         }
@@ -147,17 +159,36 @@ namespace ScannerClient_obalkyknih
         }
 
 
-        //Ctrl+X - Shows confirmation messageBox and exits application
-        private void CloseCanExecute(object sender, CanExecuteRoutedEventArgs e)
+        //Ctrl+Z - Undo last step
+        private void UndoCanExecute(object sender, CanExecuteRoutedEventArgs e)
         {
             e.CanExecute = true;
             e.Handled = true;
         }
 
-        //Ctrl+X - Shows confirmation messageBox and exits application
-        private void CloseExecuted(object sender, ExecutedRoutedEventArgs e)
+        //Ctrl+Z - Undo last step
+        private void UndoExecuted(object sender, ExecutedRoutedEventArgs e)
         {
-            this.Close();
+            if (this.undoMenuItem.IsEnabled)
+            {
+                UndoMenuItem_Click(null, null);
+            }
+        }
+
+        //Ctrl+Z - Undo last step
+        private void RedoCanExecute(object sender, CanExecuteRoutedEventArgs e)
+        {
+            e.CanExecute = true;
+            e.Handled = true;
+        }
+
+        //Ctrl+Z - Undo last step
+        private void RedoExecuted(object sender, ExecutedRoutedEventArgs e)
+        {
+            if (this.redoMenuItem.IsEnabled)
+            {
+                RedoMenuItem_Click(null, null);
+            }
         }
         #endregion
 
@@ -167,7 +198,7 @@ namespace ScannerClient_obalkyknih
         /// Adds message to StatusBar
         /// </summary>
         /// <param name="text">Message that will be added to StatusBar</param>
-        public void AddMessageToStatusBar(string text)
+        internal void AddMessageToStatusBar(string text)
         {
             this.metadataDownloadTextBox.Text += text + " ";
             if (!string.IsNullOrWhiteSpace(this.metadataDownloadTextBox.Text))
@@ -180,7 +211,7 @@ namespace ScannerClient_obalkyknih
         /// Removes message from StatusBar if it contains this message
         /// </summary>
         /// <param name="text">message that will be removed from StatusBar</param>
-        public void RemoveMessageFromStatusBar(string text)
+        internal void RemoveMessageFromStatusBar(string text)
         {
             if (!string.IsNullOrEmpty(this.metadataDownloadTextBox.Text))
             {
@@ -192,6 +223,38 @@ namespace ScannerClient_obalkyknih
             {
                 this.metadataDownloadTextBox.Visibility = Visibility.Collapsed;
             }
+        }
+
+        /// <summary>
+        /// Enables Undo MenuItem
+        /// </summary>
+        internal void ActivateUndo()
+        {
+            this.undoMenuItem.IsEnabled = true;
+        }
+
+        /// <summary>
+        /// Disables Undo MenuItem
+        /// </summary>
+        internal void DeactivateUndo()
+        {
+            this.undoMenuItem.IsEnabled = false;
+        }
+
+        /// <summary>
+        /// Enables Redo MenuItem
+        /// </summary>
+        internal void ActivateRedo()
+        {
+            this.redoMenuItem.IsEnabled = true;
+        }
+
+        /// <summary>
+        /// Disables Undo MenuItem
+        /// </summary>
+        internal void DeactivateRedo()
+        {
+            this.redoMenuItem.IsEnabled = false;
         }
 
         // Shows confirmation message and shutdown application
@@ -213,10 +276,23 @@ namespace ScannerClient_obalkyknih
             }
         }
 
-
         // Opens CreateNewUnitWindow
-        private void ShowNewUnitWindow()
+        internal void ShowNewUnitWindow()
         {
+            try
+            {
+                foreach (string fileName in Directory.GetFiles(Settings.TemporaryFolder))
+                {
+                    // remove all previous image files
+                    if (fileName.EndsWith(".tif") || fileName.EndsWith(".bmp"))
+                    {
+                        File.Delete(fileName);
+                    }
+                }
+            }
+            // don't care if some file can't be deleted right now
+            catch (Exception) { }
+
             if (isAllowedVersion == null)
             {
                 MessageBox.Show("Kontrola verze zatím neskončila, počkejte prosím.", "Kontrola verze", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -316,14 +392,15 @@ namespace ScannerClient_obalkyknih
             }
             else if (!e.Cancelled)
             {
-                this.versionStateLabel.Foreground = Brushes.Red;
-                this.versionStateLabel.Content = "Verze není aktuální";
                 this.latestVersionLabel.Content = this.updateChecker.AvailableVersion.Major.ToString()
                     + "." + this.updateChecker.AvailableVersion.Minor.ToString();
                 this.latestDateLabel.Content = this.updateChecker.AvailableVersionDate;
 
                 if (!updateChecker.IsSupportedVersion)
                 {
+                    // suppose that if it is not supported, it can't be up to date
+                    this.versionStateImage.Visibility = Visibility.Visible;
+                    this.versionStateLabel.Content = "Verze není aktuální";
                     this.programSupportLabel.Foreground = Brushes.Red;
                     this.programSupportLabel.Content = "Nepodporováno";
                     isAllowedVersion = false;
@@ -337,11 +414,12 @@ namespace ScannerClient_obalkyknih
                 }
                 else
                 {
-                    this.programSupportLabel.Foreground = Brushes.Green;
                     this.programSupportLabel.Content = "Podporováno";
                     isAllowedVersion = true;
                     if (this.updateChecker.IsUpdateAvailable)
                     {
+                        this.versionStateImage.Visibility = Visibility.Visible;
+                        this.versionStateLabel.Content = "Verze není aktuální";
                         this.downloadUpdateButton.Visibility = Visibility.Visible;
                         var result = MessageBox.Show("Aktualizace je k dispozici, chcete ji stáhnout?",
                             "Aktualizace", MessageBoxButton.YesNo, MessageBoxImage.Error);
@@ -352,8 +430,8 @@ namespace ScannerClient_obalkyknih
                     }
                     else
                     {
-                        this.versionStateLabel.Foreground = Brushes.Green;
                         this.versionStateLabel.Content = "Verze je aktuální";
+                        this.downloadUpdateButton.Visibility = Visibility.Hidden;
                         if (this.showIsLatestVersionPopup)
                         {
                             MessageBox.Show("Verze je aktuální",
@@ -445,6 +523,18 @@ namespace ScannerClient_obalkyknih
             }
         }
         #endregion
-        #endregion
+
+        // Undo last step
+        private void UndoMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            (LogicalTreeHelper.FindLogicalNode(this, "TabsControlUserControl") as TabsControl).UndoLastStep();
+        }
+
+        // Redo last step
+        private void RedoMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            (LogicalTreeHelper.FindLogicalNode(this, "TabsControlUserControl") as TabsControl).RedoLastStep();
+        }
+        #endregion        
     }
 }

@@ -37,7 +37,7 @@ namespace SobekCM.Bib_Package.MARC
 {
     public class MARC_Record_Z3950_Retriever
     {
-        public static MARC_Record Get_Record_By_Primary_Identifier(string Primary_Identifier, Z3950_Endpoint Z3950_Server, out string Message)
+        public static MARC_Record Get_Record_By_Primary_Identifier(string Primary_Identifier, Z3950_Endpoint Z3950_Server, out string Message, Record_Character_Encoding encoding)
         {
             // Initially set the message to empty
             Message = String.Empty;
@@ -98,7 +98,7 @@ namespace SobekCM.Bib_Package.MARC
                 try
                 {
                     //	feed the record to the parser and add the 955
-                    MARC_Record marcrec = parser.Parse(ms);
+                    MARC_Record marcrec = parser.Parse(ms, encoding);
                     parser.Close();
                     return marcrec;
                 }
@@ -130,7 +130,7 @@ namespace SobekCM.Bib_Package.MARC
         }
 
 
-        public static MARC_Record Get_Record(int Attribute_Number, string Search_Term, Z3950_Endpoint Z3950_Server, out string Message, Encoding encoding)
+        public static MARC_Record Get_Record(int Attribute_Number, string Search_Term, Z3950_Endpoint Z3950_Server, out string Message, Record_Character_Encoding encoding)
         {
             // Initially set the message to empty
             Message = String.Empty;
@@ -184,8 +184,7 @@ namespace SobekCM.Bib_Package.MARC
                 //	capture the byte stream
                 record = records[0];
 
-                Byte[] bytes = Encoding.Convert(encoding, Encoding.UTF8, record.Content);
-                MemoryStream ms = new MemoryStream(bytes);
+                MemoryStream ms = new MemoryStream(record.Content);
                 
                 //	display while debugging
                 //MessageBox.Show(Encoding.UTF8.GetString(record.Content));
@@ -194,7 +193,7 @@ namespace SobekCM.Bib_Package.MARC
                 {
                     //	feed the record to the parser and add the 955
                     
-                    MARC_Record marcrec = parser.Parse(ms);
+                    MARC_Record marcrec = parser.Parse(ms, encoding);
                     parser.Close();
                     return marcrec;
                 }

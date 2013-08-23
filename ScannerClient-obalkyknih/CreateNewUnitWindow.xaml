@@ -4,13 +4,26 @@
         Title="Založit novou jednotku" Height="160" Width="300" WindowStartupLocation="CenterScreen" ResizeMode="NoResize">
     <Grid>
         <Grid.Background>
-            <ImageBrush ImageSource="/ObalkyKnih-scanner;component/Images/background.jpg" />
+            <ImageBrush Viewport="0,0,218,218" ViewportUnits="Absolute" Stretch="None" TileMode="Tile"
+                        ImageSource="/ObalkyKnih-scanner;component/Images/ok-background-center.png"/>
         </Grid.Background>
         <Grid>
-            <Label Content="Založit novou jednotku" HorizontalAlignment="Center" Foreground="DeepSkyBlue" FontWeight="Bold" FontSize="20" Margin="0,6,0,0" Height="48" VerticalAlignment="Top" Width="233" />
-            <Label Content="Zadejte čárový kód:" Height="28" HorizontalAlignment="Left" Margin="12,50,0,0" Name="label1" VerticalAlignment="Top" />
-            <TextBox Height="23" HorizontalAlignment="Left" Margin="124,52,0,0" Name="barcodeTextBox" VerticalAlignment="Top" Width="120" KeyDown="BarcodeTextBox_KeyDown" />
-            <Button Content="Založit" Height="23" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,90,0,0" Name="newUnitButton" Width="75" Click="NewUnitButton_Click" />
+            <Label Content="Založit novou jednotku" HorizontalAlignment="Center" Foreground="#5e5e5e" FontWeight="Bold"
+                   FontFamily="Arial" FontSize="20" Margin="0,6,0,0" VerticalAlignment="Top" />
+            <Label Content="Zadejte čárový kód:" HorizontalAlignment="Left" Margin="12,50,0,0" Foreground="#5e5e5e"
+                   FontFamily="Arial" VerticalAlignment="Top" />
+            <TextBox Height="23" HorizontalAlignment="Left" Margin="124,52,0,0" Name="barcodeTextBox" VerticalAlignment="Top" Width="120"
+                     KeyDown="BarcodeTextBox_KeyDown" />
+            <Button Content="Založit" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,90,0,0" Style="{StaticResource MyButton}"
+                    Name="newUnitButton" Width="75" Height="25" Click="NewUnitButton_Click" Foreground="#CECECE" BorderBrush="#656565"
+                                BorderThickness="1" Cursor="Hand" ToolTip="Založit novou jednotku">
+                <Button.Background>
+                    <LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,1">
+                        <GradientStop Color="#535353" Offset="0.0" />
+                        <GradientStop Color="#3d3d3d" Offset="1.0" />
+                    </LinearGradientBrush>
+                </Button.Background>
+            </Button>
         </Grid>
     </Grid>
 </Window>

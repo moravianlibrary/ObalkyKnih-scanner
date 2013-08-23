@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Text;
 using System.Security.Cryptography;
-
+using SobekCM.Bib_Package.MARC.Parsers;
 
 namespace ScannerClient_obalkyknih
 {
@@ -72,7 +72,7 @@ namespace ScannerClient_obalkyknih
         /// <summary>
         /// Encoding used in Z39.50 server (utf8 / windows-1250)
         /// </summary>
-        public string Z39Encoding { get; set; }
+        public Record_Character_Encoding Z39Encoding { get; set; }
 
         /// <summary>
         /// Login to Z39.50 (mostly not used)
@@ -149,7 +149,7 @@ namespace ScannerClient_obalkyknih
             Settings.Z39Server = this.Z39Server;
             Settings.Z39Port = this.Z39Port;
             Settings.Z39Base = this.Z39Base;
-            Settings.Z39Encoding = StringToEncoding(this.Z39Encoding);
+            Settings.Z39Encoding = this.Z39Encoding;
             Settings.Z39UserName = this.Z39UserName;
             Settings.Z39Password = this.Z39Password;
             Settings.Z39BarcodeField = this.Z39BarcodeField;
@@ -171,7 +171,7 @@ namespace ScannerClient_obalkyknih
             this.Z39Server = Settings.Z39Server;
             this.Z39Port = Settings.Z39Port;
             this.Z39Base = Settings.Z39Base;
-            this.Z39Encoding = EncodingToString(Settings.Z39Encoding);
+            this.Z39Encoding = Settings.Z39Encoding;
             this.Z39UserName = Settings.Z39UserName;
             this.Z39Password = Settings.Z39Password;
             this.Z39BarcodeField = Settings.Z39BarcodeField;

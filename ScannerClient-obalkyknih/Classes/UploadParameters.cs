@@ -20,17 +20,17 @@ namespace ScannerClient_obalkyknih
         /// <summary>
         /// Stream containing cover image
         /// </summary>
-        public Stream CoverStream { get; set; }
+        public string CoverFilePath { get; set; }
 
         /// <summary>
         /// Stream containing tiff with toc images
         /// </summary>
-        public Stream TocStream { get; set; }
+        public List<string> TocFilePaths { get; set; }
 
         /// <summary>
         /// Stream containing meta informations
         /// </summary>
-        public Stream MetaStream { get; set; }
+        public string MetaXml { get; set; }
 
         /// <summary>
         /// Collection of string parameters (Title, Author, Year, Identifiers, Login, Password)

@@ -3,6 +3,7 @@ using System.Xml.Serialization;
 using System.IO;
 using System.Windows;
 using System.Text;
+using SobekCM.Bib_Package.MARC.Parsers;
 
 
 namespace ScannerClient_obalkyknih
@@ -17,77 +18,77 @@ namespace ScannerClient_obalkyknih
         /// <summary>
         /// Login to system ObalkyKnih.cz
         /// </summary>
-        public static string UserName { get; set; }
+        internal static string UserName { get; set; }
 
         /// <summary>
         /// Password to system ObalkyKnih.cz
         /// </summary>
-        public static string Password { get; set; }
+        internal static string Password { get; set; }
         
         /// <summary>
         /// Path to external image editor used for optional editing of cover and toc images
         /// </summary>
-        public static string ExternalImageEditor { get; set; }
+        internal static string ExternalImageEditor { get; set; }
 
         /// <summary>
         /// Indicates that X-Server is default search engine
         /// </summary>
-        public static bool IsXServerEnabled { get; set; }
+        internal static bool IsXServerEnabled { get; set; }
 
         /// <summary>
         /// URL of X-Server
         /// </summary>
-        public static string XServerUrl { get; set; }
+        internal static string XServerUrl { get; set; }
 
         /// <summary>
         /// Database which contains searched record
         /// </summary>
-        public static string XServerBase { get; set; }
+        internal static string XServerBase { get; set; }
 
         /// <summary>
         /// Indicates that Z39.50 is default search engine
         /// </summary>
-        public static bool IsZ39Enabled { get; set; }
+        internal static bool IsZ39Enabled { get; set; }
 
         /// <summary>
         /// URL of Z39.50 server
         /// </summary>
-        public static string Z39Server { get; set; }
+        internal static string Z39Server { get; set; }
 
         /// <summary>
         /// Port on which is Z39.50 server available
         /// </summary>
-        public static int Z39Port { get; set; }
+        internal static int Z39Port { get; set; }
 
         /// <summary>
         /// Database that contains searched record
         /// </summary>
-        public static string Z39Base { get; set; }
+        internal static string Z39Base { get; set; }
 
         /// <summary>
         /// Encoding of Z39.50 server
         /// </summary>
-        public static Encoding Z39Encoding { get; set; }
+        internal static Record_Character_Encoding Z39Encoding { get; set; }
 
         /// <summary>
         /// Optional login to Z39.50 server
         /// </summary>
-        public static string Z39UserName { get; set; }
+        internal static string Z39UserName { get; set; }
 
         /// <summary>
         /// Optional password to Z39.50 server
         /// </summary>
-        public static string Z39Password { get; set; }
+        internal static string Z39Password { get; set; }
 
         /// <summary>
         /// Search number for barcode attribute in Z39.50
         /// </summary>
-        public static int Z39BarcodeField { get; set; }
+        internal static int Z39BarcodeField { get; set; }
 
         /// <summary>
         /// Sigla of library
         /// </summary>
-        public static string Sigla { get; set; }
+        internal static string Sigla { get; set; }
         #endregion
 
         #region APPLICATION SETTINGS
@@ -106,129 +107,144 @@ namespace ScannerClient_obalkyknih
         /// <summary>
         /// URL of folder containing update-info.xml file
         /// </summary>
-        public const string UpdateServer = "https://obalkyknih.cz/obalkyknih-scanner";
+        internal const string UpdateServer = "https://obalkyknih.cz/obalkyknih-scanner";
 
         /// <summary>
         /// URL of import function on obalkyknih.cz
         /// </summary>
-        public const string ImportLink = "https://obalkyknih.cz/api/import";
+        internal const string ImportLink = "https://obalkyknih.cz/api/import";
 
         /// <summary>
         /// Returns path to temporary folder, where are stored images opened in external editor
         /// and downloaded updates
         /// </summary>
-        public static string TemporaryFolder { get { return System.IO.Path.GetTempPath(); } }
+        internal static string TemporaryFolder { get { return System.IO.Path.GetTempPath() + "ObalkyKnih-scanner\\"; } }
         
         /// <summary>
         /// Tag of Title field in Marc21
         /// </summary>
-        public const int MetadataTitleField = 245;
+        internal const int MetadataTitleField = 245;
 
         /// <summary>
         /// Tag of Title subfield in Marc21
         /// </summary>
-        public const char MetadataTitleSubfield = 'a';
+        internal const char MetadataTitleSubfield = 'a';
 
         /// <summary>
         /// Tag of Additional Title subfield in Marc21
         /// </summary>
-        public const char MetadataTitleSubfield2 = 'b';
+        internal const char MetadataTitleSubfield2 = 'b';
 
         /// <summary>
         /// Tag of Author field in Marc21
         /// </summary>
-        public const int MetadataAuthorField = 100;
+        internal const int MetadataAuthorField = 100;
 
         /// <summary>
-        /// Tag of Author subfield in Marc21
+        /// Tag of Author Name subfield in Marc21
         /// </summary>
-        public const char MetadataAuthorSubfield = 'a';
+        internal const char MetadataAuthorSubfieldName = 'a';
+
+        /// <summary>
+        /// Tag of Author Numeration subfield in Marc21
+        /// </summary>
+        internal const char MetadataAuthorSubfieldNumeration = 'b';
 
         /// <summary>
         /// Tag of Additional Authors field in Marc21
         /// </summary>
-        public const int MetadataAuthorField2 = 700;
-
-        /// <summary>
-        /// Tag of Additional Authors subfield in Marc21
-        /// </summary>
-        public const char MetadataAuthorSubfield2 = 'a';
+        internal const int MetadataAuthorField700 = 700;
 
         /// <summary>
         /// Tag of Publish Year field in Marc21
         /// </summary>
-        public const int MetadataPublishYearField = 260;
+        internal const int MetadataPublishYearField = 260;
 
         /// <summary>
         /// Tag of Publih Year subfield in Marc21
         /// </summary>
-        public const char MetadataPublishYearSubfield = 'c';
+        internal const char MetadataPublishYearSubfield = 'c';
 
         /// <summary>
         /// Tag of ISBN field in Marc21
         /// </summary>
-        public const int MetadataIsbnField = 20;
+        internal const int MetadataIsbnField = 20;
 
         /// <summary>
         /// Tag of ISBN subfield in Marc21
         /// </summary>
-        public const char MetadataIsbnSubfield = 'a';
+        internal const char MetadataIsbnSubfield = 'a';
 
         /// <summary>
         /// Tag of ISSN field in Marc21
         /// </summary>
-        public const int MetadataIssnField = 22;
+        internal const int MetadataIssnField = 22;
 
         /// <summary>
         /// Tag of ISSN subfield in Marc21
         /// </summary>
-        public const char MetadataIssnSubfield = 'a';
+        internal const char MetadataIssnSubfield = 'a';
 
         /// <summary>
         /// Tag of ČNB field in Marc21
         /// </summary>
-        public const int MetadataCnbField = 15;
+        internal const int MetadataCnbField = 15;
 
         /// <summary>
         /// Tag of ČNB subfield in Marc21
         /// </summary>
-        public const char MetadataCnbSubfield = 'a';
+        internal const char MetadataCnbSubfield = 'a';
 
         /// <summary>
         /// Tag of OCLC field in Marc21
         /// </summary>
-        public const int MetadataOclcField = 35;
+        internal const int MetadataOclcField = 35;
 
         /// <summary>
         /// Tag of OCLC subfield in Marc21
         /// </summary>
-        public const char MetadataOclcSubfield = 'a';
+        internal const char MetadataOclcSubfield = 'a';
+
+        /// <summary>
+        /// Tag of EAN field in Marc21
+        /// </summary>
+        internal const int MetadataEanField = 24;
+
+        /// <summary>
+        /// Tag of EAN subfield in Marc21
+        /// </summary>
+        internal const char MetadataEanSubfield = 'a';
+
+        /// <summary>
+        /// Tag of first indicator of EAN field in Marc21
+        /// </summary>
+        internal const char MetadataEanFirstIndicator = '3';
 
         /// <summary>
         /// PPI used for scanning of cover
         /// </summary>
-        public const int CoverDPI = 300;
+        internal const int CoverDPI = 300;
 
         /// <summary>
         /// Color type used for scanning of cover (Color/Grey/Black and White)
         /// </summary>
-        public const ScanColor CoverScanType = ScanColor.Color;
+        internal const ScanColor CoverScanType = ScanColor.Color;
 
         /// <summary>
         /// PPI used for scanning of cover
         /// </summary>
-        public const int TocDPI = 300;
+        internal const int TocDPI = 300;
 
         /// <summary>
         /// Color type used for scanning of cover (Color/Grey/Black and White)
         /// </summary>
-        public const ScanColor TocScanType = ScanColor.Color;
+        internal const ScanColor TocScanType = ScanColor.Color;
         #endregion
 
         /// <summary>
         /// Saves settings to disk
         /// </summary>
-        public static void PersistSettings()
+        internal static void PersistSettings()
         {
             try
             {
@@ -251,7 +267,7 @@ namespace ScannerClient_obalkyknih
         /// <summary>
         /// Reloads settings from values saved on disk
         /// </summary>
-        public static void ReloadSettings()
+        internal static void ReloadSettings()
         {
             if (!File.Exists(SettingsFile))
             {

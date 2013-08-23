@@ -1,31 +1,32 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
 using System.Windows;
 using System.Windows.Controls;
-using System.Reflection;
-using WIA;
-using System.IO;
+using System.Windows.Data;
+using System.Windows.Documents;
 using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using System.Windows.Shapes;
 
 namespace ScannerClient_obalkyknih
 {
     /// <summary>
-    /// Interaction logic for AboutWindow.xaml
+    /// Interaction logic for ExternalImageLoadWindow.xaml
     /// </summary>
-    public partial class AboutWindow : Window
+    public partial class ExternalImageLoadWindow : Window
     {
         // close on escape
         public static RoutedCommand closeCommand = new RoutedCommand();
 
-        public AboutWindow()
+        // define event
+        public event MouseButtonEventHandler Image_Clicked;
+
+        public ExternalImageLoadWindow()
         {
             InitializeComponent();
-            this.applicationVersion.Content = Assembly.GetEntryAssembly().GetName().Version.Major
-                 + "." + Assembly.GetEntryAssembly().GetName().Version.Minor;
-            this.wiaVersion.Content = typeof(Device).Assembly.GetName().Version.Major
-                 + "." + typeof(Device).Assembly.GetName().Version.Minor;
-            DateTime buildTime = new System.IO.FileInfo(Assembly.GetExecutingAssembly().Location).LastWriteTime;
-            this.buildYear.Content = buildTime.Day.ToString() + ". "  + buildTime.Month + ". "
-                + buildTime.Year.ToString();
 
             // close on Esc
             CommandBinding cb = new CommandBinding(closeCommand, CloseExecuted, CloseCanExecute);
@@ -33,6 +34,14 @@ namespace ScannerClient_obalkyknih
             KeyGesture kg = new KeyGesture(Key.Escape);
             InputBinding ib = new InputBinding(closeCommand, kg);
             this.InputBindings.Add(ib);
+        }
+
+        // throw event on Image Clicked
+        protected void OnImage_Clicked(object sender, MouseButtonEventArgs e)
+        {
+            this.Close();
+            if (this.Image_Clicked != null)
+                this.Image_Clicked(sender, e);
         }
 
         // Close on Esc

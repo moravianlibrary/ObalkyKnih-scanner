@@ -9,4 +9,13 @@
         Gray = 2,
         BlackAndWhite = 4
     }
+
+    /// <summary>
+    /// Represents type of object
+    /// </summary>
+    public enum DocumentType
+    {
+        Cover,
+        Toc
+    }
 }

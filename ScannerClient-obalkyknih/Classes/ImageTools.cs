@@ -6,6 +6,7 @@ using System.Runtime.InteropServices;
 using System.Windows.Controls;
 using DAP.Adorners;
 using System.Windows.Documents;
+using System.IO;
 
 
 namespace ScannerClient_obalkyknih
@@ -20,45 +21,34 @@ namespace ScannerClient_obalkyknih
         /// </summary>
         /// <param name="image">image that will be rotated</param>
         /// <param name="degree">degree of clockwise rotation </param>
-        public static void RotateImage(Image image, int degree)
+        public static BitmapSource RotateImage(BitmapSource inputSource, int degree)
         {
-            TransformedBitmap bi = new TransformedBitmap();
-            bi.BeginInit();
-            bi.Source = image.Source as BitmapSource;
             RotateTransform transform = new RotateTransform(degree);
-            bi.Transform = transform;
-            bi.EndInit();
-            image.Source = bi;
+            return TransformImage(inputSource, transform);
         }
 
-        /// <summary>
-        /// Flips image vertically
-        /// </summary>
-        /// <param name="image">image that will be flipped</param>
-        public static void FlipVerticalImage(Image image)
+        /// <summary> Flips image horizontally </summary>
+        /// <param name="inputImagePath">path to image that will be flipped</param>
+        /// <param name="inputImagePath">path to file, where will be flipped image saved</param>
+        public static BitmapSource FlipHorizontalImage(BitmapSource inputSource)
         {
-            TransformedBitmap bi = new TransformedBitmap();
-            bi.BeginInit();
-            bi.Source = image.Source as BitmapSource;
-            ScaleTransform transform = new ScaleTransform(1, -1);
-            bi.Transform = transform;
-            bi.EndInit();
-            image.Source = bi;
-        }
-
-        /// <summary>
-        /// Flips image horizontally (mirror image)
-        /// </summary>
-        /// <param name="image">image that will be flipped</param>
-        public static void FlipHorizontalImage(Image image)
-        {
-            TransformedBitmap bi = new TransformedBitmap();
-            bi.BeginInit();
-            bi.Source = image.Source as BitmapSource;
             ScaleTransform transform = new ScaleTransform(-1, 1);
-            bi.Transform = transform;
-            bi.EndInit();
-            image.Source = bi;
+            return TransformImage(inputSource, transform);
+        }
+
+        /// <summary> Deskew the image (rotate), so its text will be straight </summary>
+        /// <param name="inputImagePath">path to image that will be deskewed</param>
+        /// <param name="outputImagePath">path to file, where will be deskewed image saved</param>
+        /// <remarks>This is only method that uses GDI+ and does not use BitmapSource</remarks>
+        public static void DeskewImage(string inputImagePath, string outputImagePath)
+        {
+            System.Drawing.Bitmap bmpIn = new System.Drawing.Bitmap(inputImagePath);
+            Deskew sk = new Deskew(bmpIn);
+            double skewangle = sk.GetSkewAngle();
+            System.Drawing.Bitmap bmpOut = sk.RotateImage(bmpIn, -skewangle);
+            bmpIn.Dispose();
+            bmpOut.Save(outputImagePath, System.Drawing.Imaging.ImageFormat.Tiff);
+            bmpOut.Dispose();
         }
 
         #region Cropping functions
@@ -68,26 +58,16 @@ namespace ScannerClient_obalkyknih
         /// </summary>
         /// <param name="image">image that will be cropped</param>
         /// <param name="cropper">object responsible for cropping</param>
-        public static void CropImage(Image image, ref CroppingAdorner cropper)
+        public static BitmapSource CropImage(BitmapSource image, CroppingAdorner cropper)
         {
             if (cropper != null)
             {
-                Rect rc = cropper.ClippingRectangle;
-                image.Source = cropper.BpsCrop();
-                // reset cropping zone to full image again
-                AddCropToElement(image, ref cropper);
+                return cropper.BpsCrop(image);
             }
-        }
-
-        /// <summary>
-        /// Removes cropper object from the element (removes the cropping rectangle)
-        /// </summary>
-        /// <param name="cropper"></param>
-        public static void RemoveCropFromElement(CroppingAdorner cropper)
-        {
-            var element = cropper.AdornedElement;
-            AdornerLayer aly = AdornerLayer.GetAdornerLayer(element);
-            aly.Remove(cropper);
+            else
+            {
+                return null;
+            }
         }
 
         /// <summary>
@@ -95,17 +75,35 @@ namespace ScannerClient_obalkyknih
         /// </summary>
         /// <param name="fel">element to which will be added cropper</param>
         /// <param name="cropper">cropper, that will be added</param>
-        public static void AddCropToElement(FrameworkElement fel, ref CroppingAdorner cropper)
+        /// <param name="cropZoneSize">width and height of cropZone</param>
+        public static void AddCropToElement(FrameworkElement fel, ref CroppingAdorner cropper, Rect cropZoneSize)
         {
+            AdornerLayer aly = null;
+            Size cropZone = new Size(0,0);
             if (cropper != null && cropper.AdornedElement != null)
             {
-                RemoveCropFromElement(cropper);
+                cropZone = cropper.CropZone;
+                aly = AdornerLayer.GetAdornerLayer(fel);
+                if (aly.GetAdorners(fel) != null)
+                {
+                    foreach (var adorner in aly.GetAdorners(fel))
+                    {
+                        aly.Remove(adorner);
+                    }
+                }
             }
-            fel.InvalidateArrange();
-            fel.UpdateLayout();
-            Rect rcInterior = new Rect(0, 0, fel.RenderSize.Width, fel.RenderSize.Height/*fel.ActualWidth, fel.ActualHeight*/);
-            AdornerLayer aly = AdornerLayer.GetAdornerLayer(fel);
+            Rect rcInterior;
+            if (cropZoneSize.Height < 1 || cropZoneSize.Width < 1)
+            {
+                rcInterior = new Rect(0, 0, fel.RenderSize.Width, fel.RenderSize.Height);
+            }
+            else
+            {
+                rcInterior = cropZoneSize;
+            }
+            aly = AdornerLayer.GetAdornerLayer(fel);
             cropper = new CroppingAdorner(fel, rcInterior);
+            cropper.CropZone = cropZone;
             aly.Add(cropper);
         }
         #endregion
@@ -113,67 +111,41 @@ namespace ScannerClient_obalkyknih
         /// <summary>
         /// Adjusts brightness of image, this process is irreversible
         /// </summary>
-        /// <param name="bitmapImage">image, that will be adjusted</param>
+        /// <param name="sourceImage">image, that will be adjusted</param>
         /// <param name="brightness">brightness value on scale -255 to 255</param>
         /// <returns>new image with adjusted brightness</returns>
-        public static BitmapSource ApplyBrightness(BitmapSource bitmapImage, int brightness)
+        public static BitmapSource ApplyBrightness(BitmapSource sourceImage, int brightness)
         {
-            int width = bitmapImage.PixelWidth;
-            int height = bitmapImage.PixelHeight;
-            WriteableBitmap writeableBitmap = new WriteableBitmap(width, height, 300, 300, PixelFormats.Bgra32, null);
-            double A, R, G, B;
+            //if not BGRA transform to BGRA
+            if (sourceImage.Format != PixelFormats.Bgra32)
+                sourceImage = new FormatConvertedBitmap(sourceImage, PixelFormats.Bgra32, null, 0);
 
-            PixelColor pixelColor;
-            PixelColor[,] bitmap = GetPixels(bitmapImage);
+            int width = sourceImage.PixelWidth;
+            int height = sourceImage.PixelHeight;
+            int colors = sourceImage.Format.BitsPerPixel / 8;
+            int stride = width * colors;
 
-            for (int y = 0; y < bitmap.GetLength(1); y++)
+            byte[] bitmapArray = new byte[height*stride];
+            sourceImage.CopyPixels(bitmapArray, stride, 0);
+            
+            for (int i = 0; i < height * stride; i++)
             {
-                for (int x = 0; x < bitmap.GetLength(0); x++)
+                if (i % 4 != 3)
                 {
-                    pixelColor = bitmap[x, y];
-                    A = pixelColor.Alpha;
-                    R = pixelColor.Red + brightness;
-                    if (R > 255)
+                    int color = brightness + bitmapArray[i];
+                    if (color > 255)
                     {
-                        R = 255;
+                        color = 255;
                     }
-                    else if (R < 0)
+                    if (color < 0)
                     {
-                        R = 0;
+                        color = 0;
                     }
-
-                    G = pixelColor.Green + brightness;
-                    if (G > 255)
-                    {
-                        G = 255;
-                    }
-                    else if (G < 0)
-                    {
-                        G = 0;
-                    }
-
-                    B = pixelColor.Blue + brightness;
-                    if (B > 255)
-                    {
-                        B = 255;
-                    }
-                    else if (B < 0)
-                    {
-                        B = 0;
-                    }
-
-                    //Set the value
-                    pixelColor.Alpha = (byte)A;
-                    pixelColor.Blue = (byte)B;
-                    pixelColor.Green = (byte)G;
-                    pixelColor.Red = (byte)R;
-                    bitmap[x, y] = pixelColor;
+                    bitmapArray[i] = (byte)color;
                 }
             }
-            //save bitmap back to image
-            byte[] result = PixelColorToByteArray(width, height, bitmap);
-            writeableBitmap.WritePixels(new Int32Rect(0, 0, width, height), result, width * 4, 0);
-            return writeableBitmap;
+
+            return WriteableBitmap.Create(width, height, 300, 300, PixelFormats.Bgra32, sourceImage.Palette, bitmapArray, stride);
         }
 
         /// <summary>
@@ -182,143 +154,104 @@ namespace ScannerClient_obalkyknih
         /// <param name="bitmapImage">image, that will be adjusted</param>
         /// <param name="contrast">contrast level on scale -100 to 100</param>
         /// <returns>new image with adjusted contrast</returns>
-        public static BitmapSource ApplyContrast(BitmapSource bitmapImage, double contrast)
+        public static BitmapSource ApplyContrast(BitmapSource sourceImage, double contrast)
         {
-            int width = bitmapImage.PixelWidth;
-            int height = bitmapImage.PixelHeight;
-            WriteableBitmap writeableBitmap = new WriteableBitmap(width, height, 300, 300, PixelFormats.Bgra32, null);
-            //writeableBitmap.WritePixels();
-            double A, R, G, B;
-
-            PixelColor pixelColor;
-
             contrast = (100.0 + contrast) / 100.0;
             contrast *= contrast;
-            PixelColor[,] bitmap = GetPixels(bitmapImage);
 
-            for (int y = 0; y < bitmap.GetLength(1); y++)
+            //if not BGRA transform to BGRA
+            if (sourceImage.Format != PixelFormats.Bgra32)
+                sourceImage = new FormatConvertedBitmap(sourceImage, PixelFormats.Bgra32, null, 0);
+
+            int width = sourceImage.PixelWidth;
+            int height = sourceImage.PixelHeight;
+            int colors = sourceImage.Format.BitsPerPixel / 8;
+            int stride = width * colors;
+
+            byte[] bitmapArray = new byte[height * stride];
+            sourceImage.CopyPixels(bitmapArray, stride, 0);
+            
+            for (int i = 0; i < height * stride; i++)
             {
-                for (int x = 0; x < bitmap.GetLength(0); x++)
+                if (i % 4 != 3)
                 {
-                    pixelColor = bitmap[x, y];
-                    A = pixelColor.Alpha;
+                    double tmpContrast = bitmapArray[i] / 255.0;
+                    tmpContrast -= 0.5;
+                    tmpContrast *= contrast;
+                    tmpContrast += 0.5;
+                    tmpContrast *= 255;
 
-                    R = pixelColor.Red / 255.0;
-                    R -= 0.5;
-                    R *= contrast;
-                    R += 0.5;
-                    R *= 255;
-
-                    if (R > 255)
+                    if (tmpContrast > 255)
                     {
-                        R = 255;
+                        tmpContrast = 255;
                     }
-                    else if (R < 0)
+                    else if (tmpContrast < 0)
                     {
-                        R = 0;
+                        tmpContrast = 0;
                     }
-
-                    G = pixelColor.Green / 255.0;
-                    G -= 0.5;
-                    G *= contrast;
-                    G += 0.5;
-                    G *= 255;
-                    if (G > 255)
-                    {
-                        G = 255;
-                    }
-                    else if (G < 0)
-                    {
-                        G = 0;
-                    }
-
-                    B = pixelColor.Blue / 255.0;
-                    B -= 0.5;
-                    B *= contrast;
-                    B += 0.5;
-                    B *= 255;
-                    if (B > 255)
-                    {
-                        B = 255;
-                    }
-                    else if (B < 0)
-                    {
-                        B = 0;
-                    }
-
-                    //Set the value
-                    pixelColor.Alpha = (byte)A;
-                    pixelColor.Blue = (byte)B;
-                    pixelColor.Green = (byte)G;
-                    pixelColor.Red = (byte)R;
-                    bitmap[x, y] = pixelColor;
+                    bitmapArray[i] = (byte)tmpContrast;
                 }
             }
 
-            //save bitmap back to image
-            byte[] result = PixelColorToByteArray(width, height, bitmap);
-            writeableBitmap.WritePixels(new Int32Rect(0, 0, width, height), result, width * 4, 0);
-            return writeableBitmap;
+            return WriteableBitmap.Create(width,height,sourceImage.DpiX, sourceImage.DpiY, sourceImage.Format, sourceImage.Palette, bitmapArray, stride);
         }
 
-        // Creates 2-dimensional array of colored pixels from source picture
-        private static PixelColor[,] GetPixels(BitmapSource source)
+        // Applies transformation to inputSource and returned transformed BitmapSource
+        private static BitmapSource TransformImage(BitmapSource inputSource, Transform transform)
         {
-            if (source.Format != PixelFormats.Bgra32)
-                source = new FormatConvertedBitmap(source, PixelFormats.Bgra32, null, 0);
+            TransformedBitmap tb = new TransformedBitmap();
+            tb.BeginInit();
+            tb.Source = inputSource;
+            tb.Transform = transform;
+            tb.EndInit();
 
-            int width = source.PixelWidth;
-            int height = source.PixelHeight;
-            int stride = width * 4;
-            byte[] byteArray = new byte[stride * height];
-
-            source.CopyPixels(byteArray, stride, 0);
-
-            return ByteArrayToPixelColor(width, height, byteArray);
+            return tb;
         }
 
-        // Creates 2-dimensional array of colored pixels from 1 dimensional array,
-        // where each pixel has 4 bytes of color channels
-        private static PixelColor[,] ByteArrayToPixelColor(int width, int height, byte[] byteArray)
+        /// <summary>
+        /// Saves BitmapSource into file with with given path
+        /// </summary>
+        /// <param name="source">BitmapSource that will be saved</param>
+        /// <param name="outputFile">Absolute path to file, where image will be saved</param>
+        public static void SaveToFile(BitmapSource source, string outputFile)
         {
-            PixelColor[,] result = new PixelColor[width, height];
-            for (int y = 0; y < height; y++)
-                for (int x = 0; x < width; x++)
-                    result[x, y] = new PixelColor
-                    {
-                        Blue = byteArray[(y * width + x) * 4 + 0],
-                        Green = byteArray[(y * width + x) * 4 + 1],
-                        Red = byteArray[(y * width + x) * 4 + 2],
-                        Alpha = byteArray[(y * width + x) * 4 + 3],
-                    };
-            return result;
+            using (FileStream fs = new FileStream(outputFile, FileMode.Create))
+            {
+                TiffBitmapEncoder encoder = new TiffBitmapEncoder();
+                encoder.Compression = TiffCompressOption.Lzw;
+                encoder.Frames.Add(BitmapFrame.Create(source));
+                encoder.Save(fs);
+            }
         }
 
-        // Creates bitmap of pixel with 4 channel of color per pixel from PixelColor 2d array
-        private static byte[] PixelColorToByteArray(int width, int height, PixelColor[,] pixelColor)
+        /// <summary>
+        /// Loads BitmapImage with given decode width from file with with given path
+        /// </summary>
+        /// <param name="fileName">File path to image</param>
+        /// <param name="decodePixelHeight">Pixel height of decoded image</param>
+        /// <returns>Decoded BitmapImage</returns>
+        public static BitmapImage LoadGivenSizeFromFile(string fileName, int? decodePixelHeight)
         {
-            byte[] result = new byte[width * height * 4];
-            for (int y = 0; y < height; y++)
-                for (int x = 0; x < width; x++)
-                {
-                    result[(x + y * width) * 4 + 0] = pixelColor[x, y].Blue;
-                    result[(x + y * width) * 4 + 1] = pixelColor[x, y].Green;
-                    result[(x + y * width) * 4 + 2] = pixelColor[x, y].Red;
-                    result[(x + y * width) * 4 + 3] = pixelColor[x, y].Alpha;
-                };
-            return result;
+            var bitmap = new BitmapImage();
+            bitmap.BeginInit();
+            bitmap.UriSource = new Uri(fileName);
+            if (decodePixelHeight != null && decodePixelHeight > 0)
+            {
+                bitmap.DecodePixelHeight = (int)decodePixelHeight;
+            }
+            bitmap.CacheOption = BitmapCacheOption.OnLoad;
+            bitmap.CreateOptions = BitmapCreateOptions.IgnoreImageCache;
+            bitmap.EndInit();
+            return bitmap;
         }
-    }
-
-    /// <summary>
-    /// Represents structure of RGBA image encoding
-    /// </summary>
-    [StructLayout(LayoutKind.Sequential)]
-    public struct PixelColor
-    {
-        public byte Blue;
-        public byte Green;
-        public byte Red;
-        public byte Alpha;
+        /// <summary>
+        /// Loads full BitmapImage from file with with given path
+        /// </summary>
+        /// <param name="fileName">File path to image</param>
+        /// <returns>Decoded BitmapImage</returns>
+        public static BitmapImage LoadFullSizeFromFile(string fileName)
+        {
+            return LoadGivenSizeFromFile(fileName, null);
+        }
     }
 }

@@ -13,42 +13,45 @@ using Newtonsoft.Json;
 
 namespace ScannerClient_obalkyknih
 {
-    /// <summary>
-    /// Class used for retrieval of metadata
-    /// </summary>
+    /// <summary> Class used for retrieval of metadata </summary>
     public class MetadataRetriever
     {
         // barcode used for retrieval of metadata
         private string barcode;
 
-        /// <summary>
-        /// Object holding resulting metadata
-        /// </summary>
+        /// <summary> Object holding resulting metadata </summary>
         public Metadata Metadata { get; private set; }
 
-        /// <summary>
-        /// Download link of cover from obalkyknih for this record
-        /// </summary>
+        /// <summary> List of containing warning messages connected to metadata e.g. multiple ISBN </summary>
+        public List<string> Warnings { get; private set; }
+
+        /// <summary> Download link of cover from obalkyknih for this record </summary>
         public string OriginalCoverImageLink { get; private set; }
 
-        /// <summary>
-        /// Download link of toc pdf from obalkyknih for this record
-        /// </summary>
+        /// <summary> Download link of toc pdf from obalkyknih for this record </summary>
         public string OriginalTocPdfLink { get; private set; }
 
-        /// <summary>
-        /// Download link for thumbnail of toc pfd from obalkyknih for this record
-        /// </summary>
+        /// Download link for thumbnail of toc pfd from obalkyknih for this record </summary>
         public string OriginalTocThumbnailLink { get; private set; }
 
         /// <summary>
-        /// Constructor, retrieves metadata for record with given barcode
-        /// and downloads cover and toc thumbnails
+        /// Constructor for creating MetadataRetriever with given barcode and metadata (useful for retrieving cover and toc info)
         /// </summary>
+        /// <param name="barcode">barcode of record</param>
+        /// <param name="metadata">metadata connected with record</param>
+        public MetadataRetriever(string barcode, Metadata metadata)
+        {
+            this.barcode = barcode;
+            this.Metadata = metadata;
+            this.Warnings = new List<string>();
+        }
+        
+        /// <summary> Constructor, retrieves metadata for record with given barcode and downloads cover and toc thumbnails </summary>
         /// <param name="barcode">barcode of record</param>
         public MetadataRetriever(string barcode)
         {
             this.barcode = barcode;
+            this.Warnings = new List<string>();
             if (Settings.IsXServerEnabled)
             {
                 RetrieveMetadataByBarcodeXServer();
@@ -60,9 +63,7 @@ namespace ScannerClient_obalkyknih
             RetrieveOriginalCoverAndTocInformation();
         }
 
-        /// <summary>
-        /// Retrieves download links for cover and toc in obalkyknih.cz
-        /// </summary>
+        /// <summary> Retrieves download links for cover and toc in obalkyknih.cz </summary>
         public void RetrieveOriginalCoverAndTocInformation()
         {
             if (Metadata == null)
@@ -86,12 +87,12 @@ namespace ScannerClient_obalkyknih
             urlString += Uri.EscapeDataString(jsonData);
             using (WebClient webClient = new WebClient())
             {
-                webClient.Headers.Add("Referer", "https://aleph.mzk.cz");
+                webClient.Headers.Add("Referer", Settings.Z39Server ?? Settings.XServerUrl);
                 Stream stream = webClient.OpenRead(urlString);
                 StreamReader reader = new StreamReader(stream);
                 string responseJson = reader.ReadToEnd();
                 char[] endTrimChars = { '\n', ')', ']', ';' };
-                //remove unwanted characters from start remove string "obalky.callback([" and from end, it should remove string "]);\n"
+                //remove unwanted characters, from beginning remove string "obalky.callback([" and from end, it should remove string "]);\n"
                 responseJson = responseJson.Replace("obalky.callback([", "").TrimEnd(endTrimChars);
                 ResponseObject responseObject = JsonConvert.DeserializeObject<ResponseObject>(responseJson);
                 //assign values
@@ -101,6 +102,7 @@ namespace ScannerClient_obalkyknih
             }
         }
 
+        // Retrieves metadata from Z39.50 server
         private void RetrieveMetadataByBarcodeZ39()
         {
             string z39Server = Settings.Z39Server;
@@ -108,7 +110,7 @@ namespace ScannerClient_obalkyknih
             string z39Base = Settings.Z39Base;
             string z39UserName = Settings.Z39UserName;
             string z39Password = Settings.Z39Password;
-            Encoding z39Encoding = Settings.Z39Encoding ?? Encoding.UTF8;
+            Record_Character_Encoding z39Encoding = Settings.Z39Encoding;
             int z39BarcodeField = Settings.Z39BarcodeField;
 
             //validate
@@ -165,14 +167,43 @@ namespace ScannerClient_obalkyknih
                         Settings.MetadataTitleField, Settings.MetadataTitleSubfield2)
                         .TrimEnd('/', ' ');
 
-                    string authors = record_from_z3950.Get_Data_Subfield(
-                        Settings.MetadataAuthorField, Settings.MetadataAuthorSubfield);
-                    string authors2 = record_from_z3950.Get_Data_Subfield(
-                        Settings.MetadataAuthorField2, Settings.MetadataAuthorSubfield2);
-                    if (authors2.Length != 0)
+                    string authors = "";
+                    if (record_from_z3950.has_Field(Settings.MetadataAuthorField))
                     {
-                        authors += "|" + authors2;
+                        List<MARC_Field> authorFields = record_from_z3950.Fields[Settings.MetadataAuthorField];
+                        foreach (var authorField in authorFields)
+                        {
+                            //take only first occurence of subfield tag in the field, shouldn't be mixed more authors in 1 field
+                            MARC_Subfield nameSubfield = authorField.Subfields_By_Code(Settings.MetadataAuthorSubfieldName)
+                                .FirstOrDefault();
+                            MARC_Subfield numerationSubfield = authorField.Subfields_By_Code(Settings.MetadataAuthorSubfieldNumeration)
+                                .FirstOrDefault();
+
+                            string nameTmp = (nameSubfield == null ? "" : nameSubfield.Data)
+                                + " " + (numerationSubfield == null ? "" : numerationSubfield.Data);
+                            
+                            authors += nameTmp.Trim() + "|";
+                        }
                     }
+                    //parse authors from 700
+                    if (record_from_z3950.has_Field(Settings.MetadataAuthorField700))
+                    {
+                        List<MARC_Field> authorFields = record_from_z3950.Fields[Settings.MetadataAuthorField700];
+                        foreach (var authorField in authorFields)
+                        {
+                            //take only first occurence of subfield tag in the field, shouldn't be mixed more authors in 1 field
+                            MARC_Subfield nameSubfield = authorField.Subfields_By_Code(Settings.MetadataAuthorSubfieldName)
+                                .FirstOrDefault();
+                            MARC_Subfield numerationSubfield = authorField.Subfields_By_Code(Settings.MetadataAuthorSubfieldNumeration)
+                                .FirstOrDefault();
+
+                            string nameTmp = (nameSubfield == null ? "" : nameSubfield.Data)
+                                + " " + (numerationSubfield == null ? "" : numerationSubfield.Data);
+
+                            authors += nameTmp.Trim() + "|";
+                        }
+                    }
+
                     metadata.Authors = ParseAuthors(authors);
 
                     metadata.Year = record_from_z3950.Get_Data_Subfield(
@@ -180,13 +211,56 @@ namespace ScannerClient_obalkyknih
 
                     metadata.ISBN = GetNormalizedISBN(record_from_z3950.Get_Data_Subfield(
                         Settings.MetadataIsbnField, Settings.MetadataIsbnSubfield));
+                    if (metadata.ISBN.Contains('|'))
+                    {
+                        Warnings.Add("Záznam obsahuje více než 1 ISBN, vyberte správné, jsou oddělena zvislou čárou.");
+                    }
+
                     metadata.ISSN = GetNormalizedISSN(record_from_z3950.Get_Data_Subfield(
                         Settings.MetadataIssnField, Settings.MetadataIssnSubfield));
+                    if (metadata.ISSN.Contains('|'))
+                    {
+                        Warnings.Add("Záznam obsahuje více než 1 ISSN, vyberte správné, jsou oddělena zvislou čárou.");
+                    }
+                    
                     metadata.CNB = record_from_z3950.Get_Data_Subfield(
                         Settings.MetadataCnbField, Settings.MetadataCnbSubfield);
+                    if (metadata.CNB.Contains('|'))
+                    {
+                        Warnings.Add("Záznam obsahuje více než 1 ČNB, vyberte správné, jsou oddělena zvislou čárou.");
+                    }
+
                     metadata.OCLC = record_from_z3950.Get_Data_Subfield(
-                        Settings.MetadataOclcField, Settings.MetadataOclcSubfield)
-                        .Replace("(OCoLC)", "");
+                        Settings.MetadataOclcField, Settings.MetadataOclcSubfield);
+                    if (metadata.OCLC.Contains('|'))
+                    {
+                        Warnings.Add("Záznam obsahuje více než 1 OCLC, vyberte správné, jsou oddělena zvislou čárou.");
+                    }
+
+                    string ean = "";
+                    if (record_from_z3950.has_Field(Settings.MetadataEanField))
+                    {
+                        List<MARC_Field> eanFields = record_from_z3950.Fields[Settings.MetadataEanField];
+                        foreach (var eanField in eanFields)
+                        {
+                            if (eanField.Indicator1 == Settings.MetadataEanFirstIndicator)
+                            {
+                                foreach (var eanSubfield in eanField.Subfields_By_Code(Settings.MetadataEanSubfield))
+                                {
+                                    ean += eanSubfield.Data + "|";
+                                }
+                            }
+                        }
+                    }
+                    ean = ean.TrimEnd('|');
+                    if (!string.IsNullOrWhiteSpace(ean))
+                    {
+                        metadata.EAN = ean;
+                        if (metadata.EAN.Contains('|'))
+                        {
+                            this.Warnings.Add("Záznam obsahuje více než 1 EAN, vyberte správné, jsou oddělena zvislou čárou");
+                        }
+                    }
 
                     metadata.FixedFields = MarcGetFixedFields(record_from_z3950);
                     metadata.VariableFields = MarcGetVariableFields(record_from_z3950);
@@ -207,6 +281,13 @@ namespace ScannerClient_obalkyknih
                     {
                         errorMessage = "Nenalezen vhodný záznam.";
                     }
+
+                    else if (errorMessage.Contains("Connection could not be made to"))
+                    {
+                        errorMessage = "Nebylo možné navázat spojení s " + 
+                            errorMessage.Substring(errorMessage.LastIndexOf(' '));
+                    }
+
                     throw new Z39Exception(errorMessage);
                 }
                 else
@@ -284,12 +365,13 @@ namespace ScannerClient_obalkyknih
             string errorText = "";
             if (string.IsNullOrWhiteSpace(xServerUrl))
             {
-                errorText += "X-Server URL; ";
+                errorText += "X-Server URL, ";
             }
             if (string.IsNullOrWhiteSpace(xServerBaseName))
             {
                 errorText += "X-Server Database";
             }
+            errorText = errorText.TrimEnd(new char[] { ' ', ',' });
 
             if (!string.IsNullOrEmpty(errorText))
             {
@@ -299,7 +381,6 @@ namespace ScannerClient_obalkyknih
             string resultSetURLPart = "/X?op=find&code=BAR&request=" + this.barcode + "&base=" + xServerBaseName;
             string sysNoUrlPart = "/X?op=present&set_entry=1&set_number=";
             
-            if (xServerUrl == null || "".Equals(xServerUrl)) throw new Z39Exception("URL of XServer is empty");
             if (!xServerUrl.StartsWith("http"))
             {
                 xServerUrl = "https://" + xServerUrl;
@@ -356,31 +437,29 @@ namespace ScannerClient_obalkyknih
 
 
 
-                string title = ParseMetadataFromOaiXml(doc, Settings.MetadataTitleField, Settings.MetadataTitleSubfield);
-                metadata.Title = title.Trim('/').Trim();
-                title = ParseMetadataFromOaiXml(doc, Settings.MetadataTitleField, Settings.MetadataTitleSubfield2);
-                if (title != null && !string.IsNullOrWhiteSpace(title))
-                {
-                    metadata.Title += " " + title.Trim('/').Trim();
-                }
+                string title = ParseMetadataFromOaiXml(doc, Settings.MetadataTitleField, Settings.MetadataTitleSubfield,
+                    Settings.MetadataTitleSubfield2);
+                metadata.Title = title;
                 
-                string author1 = ParseMetadataFromOaiXml(doc, Settings.MetadataAuthorField, Settings.MetadataAuthorSubfield);
-                string author2 = ParseMetadataFromOaiXml(doc, Settings.MetadataAuthorField2, Settings.MetadataAuthorSubfield2);
-                if (author2 != null)
+                string authors = ParseMetadataFromOaiXml(doc, Settings.MetadataAuthorField, Settings.MetadataAuthorSubfieldName,
+                    Settings.MetadataAuthorSubfieldNumeration);
+                string authors700 = ParseMetadataFromOaiXml(doc, Settings.MetadataAuthorField700, Settings.MetadataAuthorSubfieldName,
+                    Settings.MetadataAuthorSubfieldNumeration);
+                if (authors700 != null)
                 {
-                    author1 += author2;
+                    authors += "|" + authors700;
                 }
-                metadata.Authors = ParseAuthors(author1);
-                metadata.Year = ParseMetadataFromOaiXml(doc, Settings.MetadataPublishYearField, Settings.MetadataPublishYearSubfield);
+                metadata.Authors = ParseAuthors(authors);
+                metadata.Year = ParseMetadataFromOaiXml(doc, Settings.MetadataPublishYearField, Settings.MetadataPublishYearSubfield, null);
                 ParseIdentifierFromOaiXml(doc, ref metadata);
             }
             this.Metadata = metadata;
         }
 
-        // Parses authors - from format Surname1, Name1,|Surname2, Name2,
-        // to format Name1 Surname1, Name2 Surname2
+        // Parses authors - from format Surname1, Name1,|Surname2, Name2 to format Name1 Surname1, Name2 Surname2
         private string ParseAuthors(string authors)
         {
+            authors = authors.Trim('|');
             string finalAuthors = "";
             string[] authorsArray = authors.Split('|');
             foreach (string a in authorsArray)
@@ -398,39 +477,36 @@ namespace ScannerClient_obalkyknih
         }
 
         // Parses metadata field from OAI-XML element into string representation of value
-        private string ParseMetadataFromOaiXml(XDocument document, int varfieldCode, char subfieldCode)
+        private string ParseMetadataFromOaiXml(XDocument document, int varfieldCode, char subfieldCode, char? subfieldCode2)
         {
             string varfieldCodeString = varfieldCode.ToString().PadLeft(3,'0');
             var fieldElement = from varfield in document.Descendants("varfield")
                           where  varfieldCodeString.Equals(varfield.Attribute("id").Value)
                           select varfield;
-            if (fieldElement.Count() != 1)
-            {
-                return null;
-            }
-            var resultElements = from subfield in fieldElement.Single().Elements("subfield")
-                            where subfieldCode.ToString().Equals(subfield.Attribute("label").Value)
-                            select subfield;
-            
-            if (resultElements.Count() < 1)
-            {
-                return null;
-            }
-
             string result = "";
-
-            if (varfieldCode == 700 || varfieldCode == 100)
+            foreach (var fe in fieldElement)
             {
-                foreach (var element in resultElements)
+                IEnumerable<XElement> resultElements = null;
+                if (subfieldCode2 == null)
                 {
-                    result += element.Value + "|";
+                    resultElements = from subfield in fe.Elements("subfield")
+                                     where subfieldCode.ToString().Equals(subfield.Attribute("label").Value)
+                                     select subfield;
                 }
+                else
+                {
+                    resultElements = from subfield in fe.Elements("subfield")
+                                     where subfieldCode.ToString().Equals(subfield.Attribute("label").Value)
+                                     || subfieldCode2.ToString().Equals(subfield.Attribute("label").Value)
+                                     select subfield;
+                }
+                foreach (var subfield in resultElements)
+                {
+                    result += subfield.Value.Trim(new char[]{' ','/'}) + " ";
+                }
+                result = result.Trim() + "|";
             }
-            else
-            {
-                result = resultElements.Single().Value;
-            }
-
+            result = result.TrimEnd('|');
             return result;
         }
 
@@ -438,11 +514,54 @@ namespace ScannerClient_obalkyknih
         private void ParseIdentifierFromOaiXml(XDocument document, ref Metadata metadata)
         {
             metadata.ISBN = GetNormalizedISBN(ParseMetadataFromOaiXml(document,
-                Settings.MetadataIsbnField, Settings.MetadataIsbnSubfield));
+                Settings.MetadataIsbnField, Settings.MetadataIsbnSubfield, null));
+
+            if (metadata.ISBN.Contains('|'))
+            {
+                Warnings.Add("Záznam obsahuje více než 1 ISBN, vyberte správné, jsou oddělena zvislou čárou.");
+            }
+
             metadata.ISSN = GetNormalizedISSN(ParseMetadataFromOaiXml(document,
-                Settings.MetadataIssnField, Settings.MetadataIssnSubfield));
-            metadata.CNB = ParseMetadataFromOaiXml(document, Settings.MetadataCnbField, Settings.MetadataCnbSubfield);
-            metadata.OCLC = ParseMetadataFromOaiXml(document, Settings.MetadataOclcField, Settings.MetadataOclcSubfield).Replace("(OCoLC)", "");
+                Settings.MetadataIssnField, Settings.MetadataIssnSubfield, null));
+
+            if (metadata.ISSN.Contains('|'))
+            {
+                Warnings.Add("Záznam obsahuje více než 1 ISSN, vyberte správné, jsou oddělena zvislou čárou.");
+            }
+
+            metadata.CNB = ParseMetadataFromOaiXml(document, Settings.MetadataCnbField, Settings.MetadataCnbSubfield, null);
+
+            if (metadata.CNB.Contains('|'))
+            {
+                Warnings.Add("Záznam obsahuje více než 1 ČNB, vyberte správné, jsou oddělena zvislou čárou.");
+            }
+
+            metadata.OCLC = ParseMetadataFromOaiXml(document, Settings.MetadataOclcField, Settings.MetadataOclcSubfield, null);
+
+            if (metadata.OCLC.Contains('|'))
+            {
+                Warnings.Add("Záznam obsahuje více než 1 OCLC, vyberte správné, jsou oddělena zvislou čárou.");
+            }
+
+            //parse ean
+            string ean = "";
+            var eanFields = from varfield in document.Descendants("varfield")
+                               where Settings.MetadataEanField.Equals(varfield.Attribute("id").Value)
+                               && Settings.MetadataEanFirstIndicator.Equals(varfield.Attribute("i1").Value)
+                               select varfield;
+            foreach (var eanField in eanFields)
+            {
+                IEnumerable<string> subfields = from sf in eanField.Elements("subfield")
+                                                  where Settings.MetadataEanSubfield.ToString().Equals(sf.Attribute("label").Value)
+                                                  select sf.Value;
+                ean +=  "|" + string.Join("|", subfields);
+                ean.Trim(new char[] { ' ', '/', '|' });
+            }
+            Metadata.EAN = ean;
+            if (Metadata.EAN.Contains('|'))
+            {
+                Warnings.Add("Záznam obsahuje více než 1 EAN, vyberte správné, jsou oddělena zvislou čárou.");
+            }
         }
 
         // Removes all characters different from digits and characters 'x'and '-'

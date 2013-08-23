@@ -12,6 +12,9 @@ namespace ScannerClient_obalkyknih
     /// </summary>
     public partial class CreateNewUnitWindow : Window
     {
+        // close on escape
+        public static RoutedCommand closeCommand = new RoutedCommand();
+
         // parent element of TabsControl element
         private DockPanel parentOfTabsControl;
 
@@ -26,6 +29,13 @@ namespace ScannerClient_obalkyknih
             this.parentOfTabsControl = parentOfTabsControl;
             InitializeComponent();
             this.barcodeTextBox.Focus();
+
+            // close on Esc
+            CommandBinding cb = new CommandBinding(closeCommand, CloseExecuted, CloseCanExecute);
+            this.CommandBindings.Add(cb);
+            KeyGesture kg = new KeyGesture(Key.Escape);
+            InputBinding ib = new InputBinding(closeCommand, kg);
+            this.InputBindings.Add(ib);
         }
 
         // Handles clicking on button, executes ShowUnitTabsControl
@@ -79,6 +89,19 @@ namespace ScannerClient_obalkyknih
                 parentWindow.Close();
             }
             (Window.GetWindow(parentOfTabsControl)as MainWindow).AddMessageToStatusBar("Stahuji metadata.");
+        }
+
+        // Close on Esc
+        private void CloseCanExecute(object sender, CanExecuteRoutedEventArgs e)
+        {
+            e.CanExecute = true;
+            e.Handled = true;
+        }
+
+        // Close on Esc
+        private void CloseExecuted(object sender, ExecutedRoutedEventArgs e)
+        {
+            this.Close();
         }
     }
 }
