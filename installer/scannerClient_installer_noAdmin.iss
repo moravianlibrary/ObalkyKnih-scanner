@@ -13,6 +13,7 @@ AppName=ObalkyKnih-scanner
 DefaultDirName={localappdata}\ObalkyKnih-scanner
 DefaultGroupName=ObalkyKnih-scanner
 UpdateUninstallLogAppName=no
+CreateUninstallRegKey=no
 Compression=lzma2
 SolidCompression=yes
 AllowNoIcons=no
@@ -28,7 +29,7 @@ WizardSmallImageFile=wizardSmallImage.bmp
 Name: "cz"; MessagesFile: "compiler:Languages\Czech.isl"
 
 [Files]
-Source: "..\ScannerClient-obalkyknih\bin\Release\ObalkyKnih-scanner.exe"; DestDir: "{app}" 
+Source: "..\ScannerClient-obalkyknih\bin\Release\ObalkyKnih-scanner.exe"; DestDir: "{app}"
 Source: "..\ScannerClient-obalkyknih\bin\Release\CroppingAdorner.dll"; DestDir: "{app}"
 Source: "..\ScannerClient-obalkyknih\bin\Release\Interop.WIA.dll"; DestDir: "{app}"
 Source: "..\ScannerClient-obalkyknih\bin\Release\Zoom.Net.dll"; DestDir: "{app}"

@@ -176,7 +176,7 @@ namespace Marc_Demo_App
                 // Retrieve the record by primary identifier
                 string out_message;
                 MARC_Record record_from_z3950 = MARC_Record_Z3950_Retriever.Get_Record(/*7*/1063, "2610356038"/*"80-85609-28-2"*/, endpoint, out out_message,
-                    /*Encoding.GetEncoding("windows-1250")*/Encoding.UTF8);
+                    Record_Character_Encoding.Unicode);
                 //MARC_Record record_from_z3950 = MARC_Record_Z3950_Retriever.Get_Record_By_Primary_Identifier("4543338", endpoint, out out_message);
 
                 // Display any error message encountered

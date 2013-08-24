@@ -61,7 +61,7 @@ namespace ScannerClient_obalkyknih
         {
             try
             {
-                XDocument xDocument = XDocument.Load(Settings.UpdateServer.TrimEnd('/') + "/update-info_test.xml");
+                XDocument xDocument = XDocument.Load(Settings.UpdateServer.TrimEnd('/') + "/update-info.xml");
 
                 //check if current version is in list of unsupported versions
                 var unsupportedVersionElements = xDocument.Root.Element("unsupported-versions").Elements("version");

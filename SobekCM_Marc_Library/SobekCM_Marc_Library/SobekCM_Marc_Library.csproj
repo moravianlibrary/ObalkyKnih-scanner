@@ -105,6 +105,28 @@
     <Compile Include="Z3950\MARC_Record_Z3950_Retriever.cs" />
     <Compile Include="Z3950\Z3950_Endpoint.cs" />
   </ItemGroup>
+  <ItemGroup>
+    <Content Include="..\DLLs\Zoom.net\iconv.dll">
+      <Link>iconv.dll</Link>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\DLLs\Zoom.net\libxml2.dll">
+      <Link>libxml2.dll</Link>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\DLLs\Zoom.net\libxslt.dll">
+      <Link>libxslt.dll</Link>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\DLLs\Zoom.net\yaz.dll">
+      <Link>yaz.dll</Link>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\DLLs\Zoom.net\zlib1.dll">
+      <Link>zlib1.dll</Link>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
