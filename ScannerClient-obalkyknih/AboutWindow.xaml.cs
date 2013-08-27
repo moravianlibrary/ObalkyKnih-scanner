@@ -2,9 +2,10 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Reflection;
-using WIA;
 using System.IO;
 using System.Windows.Input;
+using SobekCM.Bib_Package.MARC;
+using DAP.Adorners;
 
 namespace ScannerClient_obalkyknih
 {
@@ -21,8 +22,10 @@ namespace ScannerClient_obalkyknih
             InitializeComponent();
             this.applicationVersion.Content = Assembly.GetEntryAssembly().GetName().Version.Major
                  + "." + Assembly.GetEntryAssembly().GetName().Version.Minor;
-            this.wiaVersion.Content = typeof(Device).Assembly.GetName().Version.Major
-                 + "." + typeof(Device).Assembly.GetName().Version.Minor;
+            this.sobekVersion.Content = typeof(MARC_Field).Assembly.GetName().Version.Major
+                 + "." + typeof(MARC_Field).Assembly.GetName().Version.Minor;
+            this.croppingAdornerVersion.Content = typeof(CroppingAdorner).Assembly.GetName().Version.Major
+                 + "." + typeof(CroppingAdorner).Assembly.GetName().Version.Minor;
             DateTime buildTime = new System.IO.FileInfo(Assembly.GetExecutingAssembly().Location).LastWriteTime;
             this.buildYear.Content = buildTime.Day.ToString() + ". "  + buildTime.Month + ". "
                 + buildTime.Year.ToString();

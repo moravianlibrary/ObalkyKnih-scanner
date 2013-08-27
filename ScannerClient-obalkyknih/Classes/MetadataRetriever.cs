@@ -206,32 +206,30 @@ namespace ScannerClient_obalkyknih
 
                     metadata.Authors = ParseAuthors(authors);
 
-                    metadata.Year = record_from_z3950.Get_Data_Subfield(
-                        Settings.MetadataPublishYearField, Settings.MetadataPublishYearSubfield);
+                    metadata.Year = GetZ39Subfields(record_from_z3950, Settings.MetadataPublishYearField, 
+                        Settings.MetadataPublishYearSubfield);
 
-                    metadata.ISBN = GetNormalizedISBN(record_from_z3950.Get_Data_Subfield(
-                        Settings.MetadataIsbnField, Settings.MetadataIsbnSubfield));
+                    metadata.ISBN = GetNormalizedISBN(GetZ39Subfields(record_from_z3950, Settings.MetadataIsbnField,
+                        Settings.MetadataIsbnSubfield));
                     if (metadata.ISBN.Contains('|'))
                     {
                         Warnings.Add("Záznam obsahuje více než 1 ISBN, vyberte správné, jsou oddělena zvislou čárou.");
                     }
 
-                    metadata.ISSN = GetNormalizedISSN(record_from_z3950.Get_Data_Subfield(
-                        Settings.MetadataIssnField, Settings.MetadataIssnSubfield));
+                    metadata.ISSN = GetNormalizedISSN(GetZ39Subfields(record_from_z3950, Settings.MetadataIssnField,
+                        Settings.MetadataIssnSubfield));
                     if (metadata.ISSN.Contains('|'))
                     {
                         Warnings.Add("Záznam obsahuje více než 1 ISSN, vyberte správné, jsou oddělena zvislou čárou.");
                     }
                     
-                    metadata.CNB = record_from_z3950.Get_Data_Subfield(
-                        Settings.MetadataCnbField, Settings.MetadataCnbSubfield);
+                    metadata.CNB = GetZ39Subfields(record_from_z3950, Settings.MetadataCnbField, Settings.MetadataCnbSubfield);
                     if (metadata.CNB.Contains('|'))
                     {
                         Warnings.Add("Záznam obsahuje více než 1 ČNB, vyberte správné, jsou oddělena zvislou čárou.");
                     }
 
-                    metadata.OCLC = record_from_z3950.Get_Data_Subfield(
-                        Settings.MetadataOclcField, Settings.MetadataOclcSubfield);
+                    metadata.OCLC = GetZ39Subfields(record_from_z3950, Settings.MetadataOclcField, Settings.MetadataOclcSubfield);
                     if (metadata.OCLC.Contains('|'))
                     {
                         Warnings.Add("Záznam obsahuje více než 1 OCLC, vyberte správné, jsou oddělena zvislou čárou.");
@@ -245,9 +243,12 @@ namespace ScannerClient_obalkyknih
                         {
                             if (eanField.Indicator1 == Settings.MetadataEanFirstIndicator)
                             {
-                                foreach (var eanSubfield in eanField.Subfields_By_Code(Settings.MetadataEanSubfield))
+                                if (eanField.has_Subfield(Settings.MetadataEanSubfield))
                                 {
-                                    ean += eanSubfield.Data + "|";
+                                    foreach (var eanSubfield in eanField.Subfields_By_Code(Settings.MetadataEanSubfield))
+                                    {
+                                        ean += eanSubfield.Data + "|";
+                                    }
                                 }
                             }
                         }
@@ -295,6 +296,25 @@ namespace ScannerClient_obalkyknih
                     throw new Z39Exception("Nastala neznámá chyba během Z39.50 dotazu");
                 }
             }
+        }
+
+        // get subfield values even from multiple same subfields
+        private string GetZ39Subfields(MARC_Record record_from_z3950,int fieldCode, char subfieldCode)
+        {
+            string tmpId = "";
+            List<MARC_Field> idFields = (record_from_z3950.has_Field(fieldCode)) ?
+                record_from_z3950.Fields[fieldCode] : new List<MARC_Field>();
+            foreach (var idField in idFields)
+            {
+                if (idField.has_Subfield(subfieldCode))
+                {
+                    foreach (var idSubfield in idField.Subfields_By_Code(subfieldCode))
+                    {
+                        tmpId += idSubfield.Data + "|";
+                    }
+                }
+            }
+            return tmpId.Trim('|');
         }
 
         // Returns collection of fixed fields from Marc21 record
@@ -570,7 +590,8 @@ namespace ScannerClient_obalkyknih
             StringBuilder sb = new StringBuilder();
             foreach (char c in isbn.ToCharArray())
             {
-                if (char.IsDigit(c) || '-'.Equals(c) || 'x'.Equals(char.ToLower(c)))
+                if (char.IsDigit(c) || '-'.Equals(c) || 'x'.Equals(char.ToLower(c))
+                    || '|'.Equals(c))
                 {
                     sb.Append(c);
                 }
@@ -584,7 +605,7 @@ namespace ScannerClient_obalkyknih
             StringBuilder sb = new StringBuilder();
             foreach (char c in issn.ToCharArray())
             {
-                if (char.IsDigit(c) || '-'.Equals(c))
+                if (char.IsDigit(c) || '-'.Equals(c) || '|'.Equals(c))
                 {
                     sb.Append(c);
                 }

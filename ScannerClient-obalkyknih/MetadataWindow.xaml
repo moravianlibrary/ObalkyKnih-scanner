@@ -7,13 +7,12 @@
             <ImageBrush Viewport="0,0,218,218" ViewportUnits="Absolute" Stretch="None" TileMode="Tile"
                         ImageSource="/ObalkyKnih-scanner;component/Images/ok-background-center.png"/>
         </Grid.Background>
-        <ScrollViewer>
-            <ItemsControl Name="itemsControl">
-                <Label Content="Plný metadatový záznam" HorizontalAlignment="Center" FontSize="20" FontWeight="Bold" 
+        <Label Content="Plný metadatový záznam" HorizontalAlignment="Center" FontSize="20" FontWeight="Bold" 
                        Foreground="#5e5e5e" FontFamily="Arial" />
-                <TextBox Name="metadataLabel" IsReadOnly="True" BorderThickness="0" Background="Transparent" FontFamily="Arial"
-                         Foreground="#5e5e5e"/>
-            </ItemsControl>
+
+        <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+            <TextBox Name="metadataLabel" IsReadOnly="True" BorderThickness="0" Background="Transparent" FontFamily="Arial"
+                         Foreground="#5e5e5e" VerticalAlignment="Top" Margin="0,30"/>
         </ScrollViewer>
     </Grid>
 </Window>

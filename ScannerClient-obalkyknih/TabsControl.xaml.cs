@@ -22,6 +22,7 @@ using System.Net;
 using System.Collections.Specialized;
 using System.Xml.Linq;
 using System.Security.Cryptography;
+using System.Net.Sockets;
 
 namespace ScannerClient_obalkyknih
 {
@@ -259,7 +260,16 @@ namespace ScannerClient_obalkyknih
         {
             this.downloadMetadataButton.IsEnabled = false;
             (Window.GetWindow(this) as MainWindow).AddMessageToStatusBar("Stahuji metadata.");
-            this.metadataReceiverBackgroundWorker.RunWorkerAsync(null);
+            if (this.metadataRetriever != null && this.metadataRetriever.Warnings != null
+                && this.metadataRetriever.Warnings.Count > 0)
+            {
+                Metadata m = GetMetadataFromTextBoxes();
+                this.metadataReceiverBackgroundWorker.RunWorkerAsync(m);
+            }
+            else
+            {
+                this.metadataReceiverBackgroundWorker.RunWorkerAsync(null);
+            }
         }
         
         // On doubleclick, downloads pdf with toc and opens it in default viewer
@@ -880,21 +890,37 @@ namespace ScannerClient_obalkyknih
             try
             {
                 XElement userElement = new XElement("user", Settings.UserName);
-                XElement coverDpiElement = new XElement("cover-dpi", Settings.CoverDPI);
-                XElement tocDpiElement = new XElement("toc-dpi", Settings.TocDPI);
-                XElement coverColorElement = new XElement("cover-color", Settings.CoverScanType.ToString());
-                XElement tocColorElement = new XElement("toc-color", Settings.CoverScanType.ToString());
                 XElement siglaElement = new XElement("sigla", Settings.Sigla);
+
+                XElement clientElement = new XElement("client");
+                XElement clientNameElement = new XElement("name", "ObalkyKnih-scanner");
+                XElement clientVersionElement = new XElement("version", Assembly.GetEntryAssembly().GetName().Version);
+                IPHostEntry host;
+                string localIPv4 = "?";
+                string localIPv6 = "?";
+                host = Dns.GetHostEntry(Dns.GetHostName());
+                foreach (IPAddress ip in host.AddressList)
+                {
+                    if (ip.AddressFamily == AddressFamily.InterNetwork)
+                    {
+                        localIPv4 = ip.ToString();
+                    }
+                    if (ip.AddressFamily == AddressFamily.InterNetworkV6)
+                    {
+                        localIPv6 = ip.ToString();
+                    }
+                }
+                XElement clientIpv4Address = new XElement("local-IPv4-address", localIPv4);
+                XElement clientIpv6Address = new XElement("local-IPv6-address", localIPv6);
+                clientElement.Add(clientNameElement);
+                clientElement.Add(clientVersionElement);
+                clientElement.Add(clientIpv4Address);
+                clientElement.Add(clientIpv6Address);
 
                 XElement rootElement = new XElement("meta");
                 rootElement.Add(siglaElement);
                 rootElement.Add(userElement);
-                XElement scannerElement = new XElement("scanner");
-                scannerElement.Add(coverDpiElement);
-                scannerElement.Add(coverColorElement);
-                scannerElement.Add(tocDpiElement);
-                scannerElement.Add(tocColorElement);
-                rootElement.Add(scannerElement);
+                rootElement.Add(clientElement);
                 XDocument xmlDoc = new XDocument(
                 new XDeclaration("1.0", "utf-8", "yes"), rootElement);
                 metaXml = xmlDoc.ToString();
@@ -1125,7 +1151,7 @@ namespace ScannerClient_obalkyknih
                     FillControlMetadata();
                     this.controlTabItem.IsEnabled = true;
                     this.tabControl.SelectedItem = this.controlTabItem;
-                    Metadata m = getMetadataFromTextBoxes();
+                    Metadata m = GetMetadataFromTextBoxes();
                     metadataReceiverBackgroundWorker.RunWorkerAsync(m);
 
                     MessageBox.Show("Odesílání úspěšné.",
@@ -1140,7 +1166,7 @@ namespace ScannerClient_obalkyknih
         }
 
         // Extracts metadata from textboxes and from metadataRetriever
-        private Metadata getMetadataFromTextBoxes()
+        private Metadata GetMetadataFromTextBoxes()
         {
             Metadata metadata = new Metadata();
             if (!string.IsNullOrWhiteSpace(this.titleTextBox.Text))

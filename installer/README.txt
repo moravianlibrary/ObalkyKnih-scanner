@@ -1,15 +1,34 @@
-3 steps of creating and publishing of a new version
+3 steps of creating and publishing of a new version:
 
-First, you need to open ScannerClient-obalkyknih.sln in Visual C#,
+1. you need to open ScannerClient-obalkyknih.sln in Visual C#,
 INCREMENT ASSEMBLY VERSION AND FILE VERSION (Properties->Application->Assembly Information...),
-and build the project.
+and build the project. Increment versions for all projects, where were any changes, installer
+will copy only files with newer file version.
 
-Second, run auto-compile.bat from command line with parameter of your
+2. run auto-compile.bat from command line with parameter of your
 Inno Setup installation.
 It should looks like auto-compile.bat "C:\Program Files (x86)\Inno Setup 5"
 
-Third, copy all executable files (.exe) from Output into folder obalkyknih-scanner on server
+3. copy all executable files (.exe) from Output into folder obalkyknih-scanner on server
 and edit update-info.xml on server by replacing latest-version tag with the text generated
 in output.txt file.
 
 Done
+=================================================================================================
+CZ
+
+3 kroky vytvoøení a vydání nové verze:
+
+1. Musíte otevøít ScannerClient-obalkyknih.sln ve Visual C #,
+ZVİŠIT ASSEMBLY VERSION a  FILE VERSION (Properties-> >Application->Assembly information ...)
+Zvyšte verze pro všechny projekty, kde byly udìlané nìjaké zmìny, instalátor bude kopírovat 
+pouze soubory s novìjší verzí souboru.
+
+2. Spuste auto-compile.bat z pøíkazové øádky s parametrem cesty k Inno Setup sloce.
+Mìlo by to Vypadat nìjak takhle: auto-compile.bat "C:\Program Files (x86)\Inno Setup 5"
+
+3. Zkopírujte všechny spustitelné soubory (.exe) ze sloky Output  na server obalkyknih.cz 
+do sloky obalkyknih-skener a upravte update-Info.xml na serveru nahrazením latest-version tagu
+textem generovanım v Output.txt.
+
+Hotovo

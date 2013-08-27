@@ -17,13 +17,6 @@
                VerticalAlignment="Top" />
         <TextBox Height="23" HorizontalAlignment="Left" Margin="145,41,0,0" Name="siglaTextBox" FontFamily="Arial" Foreground="#5e5e5e"
                  VerticalAlignment="Top" Width="120" />
-        <Label Content="Grafický editor:" Height="28" HorizontalAlignment="Left" Margin="21,37,0,0" FontFamily="Arial" Foreground="#5e5e5e"
-               VerticalAlignment="Top" Grid.Column="1" />
-        <Button Content="..." Height="23" HorizontalAlignment="Left" Margin="225,41,0,0" Name="chooseGraphicEditorButton" 
-                VerticalAlignment="Top" Width="25" Click="ChooseGraphicEditorButton_Click" Grid.Column="1">
-        </Button>
-        <TextBox Height="23" HorizontalAlignment="Left" Margin="129,41,0,0" FontFamily="Arial" Foreground="#5e5e5e" 
-                 Name="graphicalEditorTextBox" VerticalAlignment="Top" Width="90" IsReadOnly="True" Grid.Column="1" />
         <RadioButton Content="Používat X-Server:" Height="17" HorizontalAlignment="Left" FontFamily="Arial" Foreground="#5e5e5e"
                      Margin="21,87,0,0" Name="xServerRadioButton" VerticalAlignment="Top" Checked="XServerRadioButton_Checked"
                      Grid.Column="1" />

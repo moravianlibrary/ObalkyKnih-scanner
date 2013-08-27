@@ -43,8 +43,7 @@ namespace ScannerClient_obalkyknih
             this.xServerDatabaseTextBox.Text = Settings.XServerBase;
 
             this.siglaTextBox.Text = Settings.Sigla;
-            this.graphicalEditorTextBox.Text = Settings.ExternalImageEditor;
-
+            
             if (Settings.Z39Encoding == Record_Character_Encoding.MARC)
             {
                 this.z39EncodingComboBox.SelectedIndex = 2;
@@ -121,8 +120,7 @@ namespace ScannerClient_obalkyknih
             Settings.XServerBase = this.xServerDatabaseTextBox.Text;
             
             Settings.Sigla = this.siglaTextBox.Text;
-            Settings.ExternalImageEditor = this.graphicalEditorTextBox.Text;
-
+            
             Settings.PersistSettings();
 
             //close window
@@ -195,25 +193,6 @@ namespace ScannerClient_obalkyknih
                 MessageBox.Show(errorMsg, "Nastavení obsahují chyby", MessageBoxButton.OK, MessageBoxImage.Error);
             }
             return isValid;
-        }
-
-        // Shows dialog for choosing exe file of external graphical editor,
-        // on success, saves result to graphicalEditorTextBox
-        private void ChooseGraphicEditorButton_Click(object sender, RoutedEventArgs e)
-        {
-            Microsoft.Win32.OpenFileDialog dlg = new Microsoft.Win32.OpenFileDialog();
-            dlg.Filter = "executable files |*.exe";
-            dlg.FilterIndex = 2;
-            dlg.CheckFileExists = true;
-            dlg.CheckPathExists = true;
-            dlg.InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
-            bool? result = dlg.ShowDialog();
-
-            // Process open file dialog box results
-            if (result == true)
-            {
-                this.graphicalEditorTextBox.Text = dlg.FileName;
-            }
         }
 
         // Close on Esc

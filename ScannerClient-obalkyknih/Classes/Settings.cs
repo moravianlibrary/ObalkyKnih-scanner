@@ -24,12 +24,7 @@ namespace ScannerClient_obalkyknih
         /// Password to system ObalkyKnih.cz
         /// </summary>
         internal static string Password { get; set; }
-        
-        /// <summary>
-        /// Path to external image editor used for optional editing of cover and toc images
-        /// </summary>
-        internal static string ExternalImageEditor { get; set; }
-
+       
         /// <summary>
         /// Indicates that X-Server is default search engine
         /// </summary>

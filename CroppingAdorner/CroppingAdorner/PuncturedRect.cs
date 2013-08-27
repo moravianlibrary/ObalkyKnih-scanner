@@ -34,7 +34,9 @@ namespace DAP.Adorners
 			double left = Math.Max(rcProposed.Left, rcExterior.Left);
 			double top = Math.Max(rcProposed.Top, rcExterior.Top);
 			double width = Math.Min(rcProposed.Right, rcExterior.Right) - left;
+            width = Math.Max(0, width);
 			double height = Math.Min(rcProposed.Bottom, rcExterior.Bottom) - top;
+            height = Math.Max(0, height);
 			rcProposed = new Rect(left, top, width, height);
 			return rcProposed;
 		}

@@ -141,7 +141,6 @@ namespace ScannerClient_obalkyknih
         {
             Settings.UserName = this.UserName;
             Settings.Password = GetDecryptedPassword(this.Password);
-            Settings.ExternalImageEditor = this.ExternalImageEditor;
             Settings.IsXServerEnabled = this.IsXServerEnabled;
             Settings.XServerUrl = this.XServerUrl;
             Settings.XServerBase = this.XServerBase;
@@ -163,7 +162,6 @@ namespace ScannerClient_obalkyknih
         {
             this.UserName = Settings.UserName;
             this.Password = this.GetEncryptedPassword(Settings.Password);
-            this.ExternalImageEditor = Settings.ExternalImageEditor;
             this.IsXServerEnabled = Settings.IsXServerEnabled;
             this.XServerUrl = Settings.XServerUrl;
             this.XServerBase = Settings.XServerBase;
