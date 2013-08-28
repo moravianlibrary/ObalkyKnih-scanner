@@ -5,9 +5,7 @@ INCREMENT ASSEMBLY VERSION AND FILE VERSION (Properties->Application->Assembly I
 and build the project. Increment versions for all projects, where were any changes, installer
 will copy only files with newer file version.
 
-2. run auto-compile.bat from command line with parameter of your
-Inno Setup installation.
-It should looks like auto-compile.bat "C:\Program Files (x86)\Inno Setup 5"
+2. run auto-compile.bat from command line
 
 3. copy all executable files (.exe) from Output into folder obalkyknih-scanner on server
 and edit update-info.xml on server by replacing latest-version tag with the text generated
@@ -24,8 +22,7 @@ ZVİŠIT ASSEMBLY VERSION a  FILE VERSION (Properties-> >Application->Assembly inf
 Zvyšte verze pro všechny projekty, kde byly udìlané nìjaké zmìny, instalátor bude kopírovat 
 pouze soubory s novìjší verzí souboru.
 
-2. Spuste auto-compile.bat z pøíkazové øádky s parametrem cesty k Inno Setup sloce.
-Mìlo by to Vypadat nìjak takhle: auto-compile.bat "C:\Program Files (x86)\Inno Setup 5"
+2. Spuste auto-compile.bat z pøíkazové øádky
 
 3. Zkopírujte všechny spustitelné soubory (.exe) ze sloky Output  na server obalkyknih.cz 
 do sloky obalkyknih-skener a upravte update-Info.xml na serveru nahrazením latest-version tagu

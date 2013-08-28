@@ -16,7 +16,6 @@ AppName=ObalkyKnih-scanner
 DefaultDirName={pf32}\ObalkyKnih-scanner
 DefaultGroupName=ObalkyKnih-scanner
 UpdateUninstallLogAppName=no
-CreateUninstallRegKey=no
 Compression=lzma2
 SolidCompression=yes
 AllowNoIcons=no

@@ -13,7 +13,6 @@ AppName=ObalkyKnih-scanner
 DefaultDirName={localappdata}\ObalkyKnih-scanner
 DefaultGroupName=ObalkyKnih-scanner
 UpdateUninstallLogAppName=no
-CreateUninstallRegKey=no
 Compression=lzma2
 SolidCompression=yes
 AllowNoIcons=no
