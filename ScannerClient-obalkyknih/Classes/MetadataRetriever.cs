@@ -74,9 +74,24 @@ namespace ScannerClient_obalkyknih
             Bibinfo bibinfo = new Bibinfo();
             bibinfo.authors = new List<string>();
             bibinfo.authors.Add(Metadata.Authors);
-            bibinfo.title = Metadata.Title;
-            bibinfo.year = Metadata.Year;
-            bibinfo.isbn = Metadata.ISBN;
+            bibinfo.title = (string.IsNullOrWhiteSpace(Metadata.Title)) ? null : Metadata.Title;
+            bibinfo.year = (string.IsNullOrWhiteSpace(Metadata.Year)) ? null : Metadata.Year;
+            bibinfo.isbn = (string.IsNullOrWhiteSpace(Metadata.ISBN)) ? null : Metadata.ISBN;
+            bibinfo.issn = (string.IsNullOrWhiteSpace(Metadata.ISSN)) ? null : Metadata.ISSN;
+            bibinfo.ean = (string.IsNullOrWhiteSpace(Metadata.EAN)) ? null : Metadata.EAN;
+            bibinfo.oclc = (string.IsNullOrWhiteSpace(Metadata.OCLC)) ? null : Metadata.OCLC;
+            if (!string.IsNullOrWhiteSpace(Metadata.CNB))
+            {
+                bibinfo.nbn = Metadata.CNB;
+            }
+            else if (!string.IsNullOrWhiteSpace(Metadata.URN))
+            {
+                bibinfo.nbn = Metadata.URN;
+            }
+            else if (!string.IsNullOrWhiteSpace(Metadata.Custom))
+            {
+                bibinfo.nbn = Settings.Sigla + "" + Metadata.Custom;
+            }
             requestObject.bibinfo = bibinfo;
             string urlString = "https://www.obalkyknih.cz/api/book?book=";
             requestObject.permalink = @"http://aleph.mzk.cz/F?func=find-c&ccl_term=sys=" + Metadata.Sysno;
@@ -95,10 +110,13 @@ namespace ScannerClient_obalkyknih
                 //remove unwanted characters, from beginning remove string "obalky.callback([" and from end, it should remove string "]);\n"
                 responseJson = responseJson.Replace("obalky.callback([", "").TrimEnd(endTrimChars);
                 ResponseObject responseObject = JsonConvert.DeserializeObject<ResponseObject>(responseJson);
-                //assign values
-                this.OriginalCoverImageLink = responseObject.cover_medium_url;
-                this.OriginalTocThumbnailLink = responseObject.toc_thumbnail_url;
-                this.OriginalTocPdfLink = responseObject.toc_pdf_url;
+                if (responseObject != null)
+                {
+                    //assign values
+                    this.OriginalCoverImageLink = responseObject.cover_medium_url;
+                    this.OriginalTocThumbnailLink = responseObject.toc_thumbnail_url;
+                    this.OriginalTocPdfLink = responseObject.toc_pdf_url;
+                }
             }
         }
 

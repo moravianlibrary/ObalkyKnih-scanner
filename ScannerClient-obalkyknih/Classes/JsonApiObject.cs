@@ -45,9 +45,8 @@ namespace ScannerClient_obalkyknih
         public string year { get; set; }
         public string isbn { get; set; }
         public string issn { get; set; }
-        public string coclc { get; set; }
-        public string urn { get; set; }
+        public string nbn { get; set; }
+        public string oclc { get; set; }
         public string ean { get; set; }
-        public string sigla { get; set; }
     }
 }
