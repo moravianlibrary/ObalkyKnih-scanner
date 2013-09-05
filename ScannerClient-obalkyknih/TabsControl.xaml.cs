@@ -1921,6 +1921,7 @@ namespace ScannerClient_obalkyknih
             }
             this.tocPagesNumber.Content = pagesNumber + " " + pages;
             EnableImageControllers();
+            this.ocrCheckBox.IsChecked = true;
         }
 
         // Removes colored border from all thumbnails
@@ -2100,6 +2101,8 @@ namespace ScannerClient_obalkyknih
                         this.selectedImageGuid = Guid.Empty;
                         this.selectedImage.Source = new BitmapImage(
                             new Uri("/ObalkyKnih-scanner;component/Images/default-icon.png", UriKind.Relative));
+
+                        Mouse.OverrideCursor = null;
                     }
                     else
                     {
@@ -2111,6 +2114,7 @@ namespace ScannerClient_obalkyknih
 
                         EnableImageControllers();
                     }
+                    this.ocrCheckBox.IsChecked = false;
                 }
                 else
                 {

@@ -116,24 +116,6 @@ namespace ScannerClient_obalkyknih
             return Convert.ToBase64String(encryptedData);
         }
 
-        private string EncodingToString(Encoding encoding)
-        {
-            return encoding.WebName;
-        }
-
-        // Converts string representation of Encoding to its Encoding object representation
-        private Encoding StringToEncoding(string encodingString)
-        {
-            try
-            {
-                return Encoding.GetEncoding(encodingString);
-            }
-            catch(ArgumentException)
-            {
-                return Encoding.UTF8;
-            }
-        }
-
         /// <summary>
         /// Copies values into static Settings class
         /// </summary>
@@ -169,7 +151,8 @@ namespace ScannerClient_obalkyknih
             this.Z39Server = Settings.Z39Server;
             this.Z39Port = Settings.Z39Port;
             this.Z39Base = Settings.Z39Base;
-            this.Z39Encoding = Settings.Z39Encoding;
+            this.Z39Encoding = (Settings.Z39Encoding == 0) ?
+                Record_Character_Encoding.Unicode : Settings.Z39Encoding;
             this.Z39UserName = Settings.Z39UserName;
             this.Z39Password = Settings.Z39Password;
             this.Z39BarcodeField = Settings.Z39BarcodeField;

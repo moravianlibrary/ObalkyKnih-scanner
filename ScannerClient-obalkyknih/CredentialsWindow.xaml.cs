@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Windows;
 using System.Windows.Input;
+using System.Diagnostics;
+using System.Windows.Navigation;
 
 
 namespace ScannerClient_obalkyknih
@@ -63,6 +65,12 @@ namespace ScannerClient_obalkyknih
         private void CloseExecuted(object sender, ExecutedRoutedEventArgs e)
         {
             this.Close();
+        }
+
+        private void Hyperlink_RequestNavigate(object sender, RequestNavigateEventArgs e)
+        {
+            Process.Start(new ProcessStartInfo(e.Uri.AbsoluteUri));
+            e.Handled = true;
         }
     }
 }

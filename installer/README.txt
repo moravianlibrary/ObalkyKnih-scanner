@@ -1,3 +1,10 @@
+Requirements:
+
+1. Visual C# Express 2010 or newer or Visual Studio 2010 or newer
+   <http://www.microsoft.com/visualstudio/eng/products/visual-studio-2010-express>
+2. InnoSetup 5 unicode version installed with ISPP <http://www.jrsoftware.org/>
+--------------------------------------------------------------------------------------------------
+
 3 steps of creating and publishing of a new version:
 
 1. you need to open ScannerClient-obalkyknih.sln in Visual C#,
@@ -13,12 +20,19 @@ in output.txt file.
 
 Done
 =================================================================================================
-CZ
+ÈESKY********************************************************************************************
+=================================================================================================
+Požadavky:
+
+1. Visual C# Express 2010 nebo novìjší, nebo Visual Studio 2010 nebo novìjší 
+   <http://www.microsoft.com/visualstudio/cze/products/visual-studio-2010-express>
+2. InnoSetup 5 unicode verze instalovaná s ISPP <http://www.jrsoftware.org/>
+--------------------------------------------------------------------------------------------------
 
 3 kroky vytvoøení a vydání nové verze:
 
 1. Musíte otevøít ScannerClient-obalkyknih.sln ve Visual C #,
-ZVÝŠIT ASSEMBLY VERSION a  FILE VERSION (Properties-> >Application->Assembly information ...)
+ZVÝŠIT ASSEMBLY VERSION a  FILE VERSION (Properties->Application->Assembly information ...)
 Zvyšte verze pro všechny projekty, kde byly udìlané nìjaké zmìny, instalátor bude kopírovat 
 pouze soubory s novìjší verzí souboru.
 
