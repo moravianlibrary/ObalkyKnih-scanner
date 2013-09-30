@@ -8,6 +8,9 @@ using System.Drawing.Drawing2D;
 
 namespace ScannerClient_obalkyknih
 {
+    /// <summary>
+    /// Class for calculating skew angle and rotating image
+    /// </summary>
     public class Deskew
     {
 
@@ -18,14 +21,14 @@ namespace ScannerClient_obalkyknih
         double cAlphaStep = 0.2;
         int cSteps = 40 * 5;
         // Precalculation of sin and cos.
-        double[] cSinA;//TODO DYNAMIC
-        double[] cCosA;//TODO DYNAMIC
+        double[] cSinA;
+        double[] cCosA;
         // Range of d
         double cDMin;
         double cDStep = 1;
         int cDCount;
         // Count of points that fit in a line.
-        int[] cHMatrix;//TODO DYNAMIC
+        int[] cHMatrix;
 
         /// <summary>
         /// constructor
@@ -37,7 +40,10 @@ namespace ScannerClient_obalkyknih
         }
 
 
-        // Calculate the skew angle of the image cBmp.
+        /// <summary>
+        /// Calculates the skew angle of the image
+        /// </summary>
+        /// <returns>Skew angle of image</returns>
         public double GetSkewAngle()
         {
             double sum = 0;
@@ -46,9 +52,9 @@ namespace ScannerClient_obalkyknih
             // Hough Transformation
             Calc();
             // Top 20 of the detected lines in the image.
-            HougLine[] hl = GetTop(20);
+            HougLine[] hl = GetTop(10);
             // Average angle of the lines
-            for (int i = 0; i <= 19; i++)
+            for (int i = 0; i <= 9; i++)
             {
                 sum += hl[i].Alpha;
                 count += 1;
@@ -57,7 +63,12 @@ namespace ScannerClient_obalkyknih
         }
 
 
-        // Rotates the input image by theta degrees around center.
+        /// <summary>
+        /// Rotates the input image by theta degrees around center.
+        /// </summary>
+        /// <param name="bmpSrc">image to rotate</param>
+        /// <param name="theta">angle of rotation</param>
+        /// <returns>image rotated by theta degrees</returns>
         public Bitmap RotateImage(Bitmap bmpSrc, double theta)
         {
             Matrix mRotate = new Matrix();
@@ -175,9 +186,8 @@ namespace ScannerClient_obalkyknih
                 {
                     cHMatrix[index] += 1;
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
-                    // TODO LOG EXCEPTION
                 }
             }
         }

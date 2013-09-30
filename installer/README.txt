@@ -8,9 +8,10 @@ Requirements:
 3 steps of creating and publishing of a new version:
 
 1. you need to open ScannerClient-obalkyknih.sln in Visual C#,
-INCREMENT ASSEMBLY VERSION AND FILE VERSION (Properties->Application->Assembly Information...),
-and build the project. Increment versions for all projects, where were any changes, installer
-will copy only files with newer file version.
+INCREMENT ASSEMBLY VERSION (Properties->Application->Assembly Information->Assembly version)
+and build the project (File Version will be synced automatically with Assembly version).
+You may increment Assembly versions for other projects, if significant changes were done,
+however, it is not needed, their build and revision numbers are incremented during every build.
 
 2. run auto-compile.bat from command line
 
@@ -32,9 +33,10 @@ Poadavky:
 3 kroky vytvoøení a vydání nové verze:
 
 1. Musíte otevøít ScannerClient-obalkyknih.sln ve Visual C #,
-ZVİŠIT ASSEMBLY VERSION a  FILE VERSION (Properties->Application->Assembly information ...)
-Zvyšte verze pro všechny projekty, kde byly udìlané nìjaké zmìny, instalátor bude kopírovat 
-pouze soubory s novìjší verzí souboru.
+ZVİŠIT ASSEMBLY VERSION (Properties->Application->Assembly information->Assembly version)
+a skompilovat projekt.
+Pokud byli vıznamné zmìny i v jinıch projektech, tak mùete zvıšit jejich assembly version taky,
+ale není to nutnı, nakolik pøi kadé kompilaci sa navıší revision a build number.
 
 2. Spuste auto-compile.bat z pøíkazové øádky
 

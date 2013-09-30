@@ -309,10 +309,10 @@
                         <Label Content="Jas" Margin="20,0,0,0" FontFamily="Arial" Foreground="#5E5E5E" VerticalAlignment="Top"
                                HorizontalAlignment="Left"/>
                         <Slider Name="brightnessSlider" Style="{StaticResource MyCustomStyleForSlider}" Width="160" Height="25"
-                                Foreground="#5E5E5E" VerticalAlignment="Top" Margin="0,20,40,0" 
-                                Minimum="-255" Maximum="255" Value="0" Ticks="0" SmallChange="1" SelectionStart="-255" 
+                                Foreground="#5E5E5E" VerticalAlignment="Top" Margin="0,20,40,0"
+                                Minimum="-255" Maximum="255" Value="0" Ticks="0" SmallChange="5" SelectionStart="-255"
                                 SelectionEnd="255" IsEnabled="False" AutoToolTipPrecision="0" Cursor="Hand" 
-                                AutoToolTipPlacement="BottomRight" IsSnapToTickEnabled="False" 
+                                AutoToolTipPlacement="TopLeft" IsSnapToTickEnabled="False"
                                 MouseEnter="Icon_MouseEnter" MouseLeave="Icon_MouseLeave" 
                                 ToolTip="Nastavte jas a kontrast a potvrďte tlačítkem OK" ValueChanged="BrightnessSlider_ValueChanged" />
                         <Image Height="18" HorizontalAlignment="Left" VerticalAlignment="Top" Stretch="Uniform" Width="18" 
@@ -321,13 +321,23 @@
                                HorizontalAlignment="Left"/>
                         <Slider Name="contrastSlider" Style="{StaticResource MyCustomStyleForSlider}" Width="160" Height="25"
                                 Foreground="#5E5E5E" VerticalAlignment="Top" Margin="0,80,40,0" Cursor="Hand" 
-                                Minimum="-100" Maximum="100" Value="0" Ticks="0" SmallChange="1" SelectionStart="-100" 
+                                Minimum="-100" Maximum="100" Value="0" Ticks="0" SmallChange="5" SelectionStart="-100"
                                 SelectionEnd="100" IsEnabled="False" AutoToolTipPrecision="0"
-                                AutoToolTipPlacement="BottomRight" IsSnapToTickEnabled="False"
+                                AutoToolTipPlacement="TopLeft" IsSnapToTickEnabled="False"
                                 MouseEnter="Icon_MouseEnter" MouseLeave="Icon_MouseLeave" 
                                 ToolTip="Nastavte jas a kontrast a potvrďte tlačítkem OK" ValueChanged="ContrastSlider_ValueChanged" />
-                        <Button Width="50" Height="30" Name="sliderConfirmButton" Content="OK" Cursor="Hand" IsEnabled="False"
-                                HorizontalAlignment="Right" Margin="0,45,0,0" Foreground="#CECECE" BorderBrush="#656565"
+                        <Image Height="18" HorizontalAlignment="Left" VerticalAlignment="Top" Stretch="Uniform" Width="18"
+                               Margin="0,120,0,0" Source="/ObalkyKnih-scanner;component/Images/ok-icon-gamma.png" />
+                        <Label Content="Gamma" Margin="20,120,0,0" FontFamily="Arial" Foreground="#5E5E5E" VerticalAlignment="Top"
+                               HorizontalAlignment="Left"/>
+                        <Slider Name="gammaSlider" Style="{StaticResource MyCustomStyleForSlider}" Width="160" Height="25"
+                                Foreground="#5E5E5E" VerticalAlignment="Top" Margin="0,140,40,0" Cursor="Hand"
+                                Minimum="0" Maximum="2" Value="1" Ticks="1" SmallChange="1" IsEnabled="False" AutoToolTipPrecision="1"
+                                AutoToolTipPlacement="TopLeft" IsSnapToTickEnabled="False"
+                                MouseEnter="Icon_MouseEnter" MouseLeave="Icon_MouseLeave"
+                                ToolTip="Nastavte hodnotu gamma a potvrďte tlačítkem OK" ValueChanged="GammaSlider_ValueChanged" />
+                        <Button Width="40" Height="30" Name="sliderConfirmButton" Content="OK" Cursor="Hand" IsEnabled="False"
+                                HorizontalAlignment="Right" Margin="0,77,0,0" Foreground="#CECECE" BorderBrush="#656565"
                                 VerticalAlignment="Top" BorderThickness="1" Style="{StaticResource MyButton}" 
                                 Click="SliderConfirmButton_Click" ToolTip="Potvrdit změnu jasu a kontrastu">
                             <Button.Background>
@@ -339,7 +349,7 @@
                         </Button>
                     </Grid>
                     <!--Scanning and image loading-->
-                    <Grid Margin="0,340,0,0" VerticalAlignment="Top" HorizontalAlignment="Center">
+                    <Grid Margin="0,400,0,0" VerticalAlignment="Top" HorizontalAlignment="Center">
                         <Button Name="scanCoverButton" Content="Skenovat obálku" Height="30" Click="ScanCoverButton_Click"
                                 HorizontalAlignment="Center" Margin="0,0,0,0" Foreground="#CECECE" BorderBrush="#656565"
                                 VerticalAlignment="Top" Width="165" BorderThickness="1" Style="{StaticResource MyButton}"
@@ -368,7 +378,7 @@
                                MouseLeftButtonDown="LoadFromFile_Clicked" MouseEnter="Icon_MouseEnter" MouseLeave="Icon_MouseLeave" />
                     </Grid>
                     <!--Sending to obalkyknih.cz-->
-                    <Grid Margin="0,500,0,0" VerticalAlignment="Top" HorizontalAlignment="Center">
+                    <Grid Margin="0,560,0,0" VerticalAlignment="Top" HorizontalAlignment="Center">
                         <Button Name="sendButton" Content="Odeslat" Height="30" BorderBrush="#b7da86" Cursor="Hand"
                                 HorizontalAlignment="Center" Margin="0,0,0,0" Foreground="White" ToolTip="Odeslat všechno na obalkyknih.cz"
                                 VerticalAlignment="Top" Width="165" BorderThickness="1" Style="{StaticResource MyButton}" Click="SendButton_Click">

@@ -18,4 +18,18 @@
         Cover,
         Toc
     }
+
+    /// <summary>
+    /// Represent type of image transformation
+    /// </summary>
+    public enum ImageTransforms
+    {
+        RotateLeft,
+        RotateRight,
+        Rotate180,
+        FlipHorizontal,
+        Deskew,
+        Crop,
+        CorrectColors
+    }
 }

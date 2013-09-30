@@ -595,21 +595,29 @@ namespace ScannerClient_obalkyknih
                 ean +=  "|" + string.Join("|", subfields);
                 ean.Trim(new char[] { ' ', '/', '|' });
             }
-            Metadata.EAN = ean;
-            if (Metadata.EAN.Contains('|'))
+            metadata.EAN = ean;
+            if (metadata.EAN.Contains('|'))
             {
                 Warnings.Add("Záznam obsahuje více než 1 EAN, vyberte správné, jsou oddělena zvislou čárou.");
             }
         }
 
-        // Removes all characters different from digits and characters 'x'and '-'
+        // Removes all characters between character different from digits, 'x' or '-' and '|'
         private string GetNormalizedISBN(string isbn)
         {
+            bool write = true;
             StringBuilder sb = new StringBuilder();
             foreach (char c in isbn.ToCharArray())
             {
-                if (char.IsDigit(c) || '-'.Equals(c) || 'x'.Equals(char.ToLower(c))
-                    || '|'.Equals(c))
+                if ('|'.Equals(c))
+                {
+                    write = true;
+                }
+                else if (!(char.IsDigit(c) || '-'.Equals(c) || 'x'.Equals(char.ToLower(c))))
+                {
+                    write = false;
+                }
+                if (write)
                 {
                     sb.Append(c);
                 }
@@ -620,10 +628,19 @@ namespace ScannerClient_obalkyknih
         // Removes all characters different from digits and character '-'
         private string GetNormalizedISSN(string issn)
         {
+            bool write = true;
             StringBuilder sb = new StringBuilder();
             foreach (char c in issn.ToCharArray())
             {
-                if (char.IsDigit(c) || '-'.Equals(c) || '|'.Equals(c))
+                if ('|'.Equals(c))
+                {
+                    write = true;
+                }
+                else if (!(char.IsDigit(c) || '-'.Equals(c) || 'x'.Equals(char.ToLower(c))))
+                {
+                    write = false;
+                }
+                if (write)
                 {
                     sb.Append(c);
                 }
