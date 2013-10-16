@@ -442,7 +442,7 @@ namespace ScannerClient_obalkyknih
         {
             this.titleTextBox.Text = metadata.Title;
             this.authorTextBox.Text = metadata.Authors;
-            this.yearTextBox.Text = metadata.Year.ToString();
+            this.yearTextBox.Text = metadata.Year;
             this.isbnTextBox.Text = metadata.ISBN;
             this.issnTextBox.Text = metadata.ISSN;
             this.cnbTextBox.Text = metadata.CNB;
@@ -462,100 +462,85 @@ namespace ScannerClient_obalkyknih
 
             string error;
             //ISBN
-            if (!string.IsNullOrEmpty(this.isbnTextBox.Text))
+            error = ValidateIsbn(this.isbnTextBox.Text);
+            if (error != null)
             {
-
-                error = ValidateIsbn(this.isbnTextBox.Text);
-                if (error != null)
-                {
-                    this.isbnWarning.Visibility = Visibility.Visible;
-                    this.isbnWarning.ToolTip = this.isbnTextBox.ToolTip = error;
-                    this.isbnTextBox.BorderBrush = (SolidColorBrush)(new BrushConverter().ConvertFrom("#A50100"));
-                }
-                else
-                {
-                    this.isbnWarning.Visibility = Visibility.Hidden;
-                    this.isbnWarning.ToolTip = this.isbnTextBox.ToolTip = null;
-                    this.isbnTextBox.BorderBrush = (SolidColorBrush)(new BrushConverter().ConvertFrom("#111111"));
-                }
+                this.isbnWarning.Visibility = Visibility.Visible;
+                this.isbnWarning.ToolTip = this.isbnTextBox.ToolTip = error;
+                this.isbnTextBox.BorderBrush = (SolidColorBrush)(new BrushConverter().ConvertFrom("#A50100"));
+            }
+            else
+            {
+                this.isbnWarning.Visibility = Visibility.Hidden;
+                this.isbnWarning.ToolTip = this.isbnTextBox.ToolTip = null;
+                this.isbnTextBox.BorderBrush = (SolidColorBrush)(new BrushConverter().ConvertFrom("#111111"));
             }
             // ISSN 7 numbers + checksum
-            if (!string.IsNullOrEmpty(this.issnTextBox.Text))
+            error = ValidateIssn(this.issnTextBox.Text);
+            if (error != null)
             {
-
-                error = ValidateIssn(this.issnTextBox.Text);
-                if (error != null)
-                {
-                    this.issnWarning.Visibility = Visibility.Visible;
-                    this.issnWarning.ToolTip = this.issnTextBox.ToolTip = error;
-                    this.issnTextBox.BorderBrush = (SolidColorBrush)(new BrushConverter().ConvertFrom("#A50100"));
-                }
-                else
-                {
-                    this.issnWarning.Visibility = Visibility.Hidden;
-                    this.issnWarning.ToolTip = this.issnTextBox.ToolTip = null;
-                    this.issnTextBox.BorderBrush = (SolidColorBrush)(new BrushConverter().ConvertFrom("#111111"));
-                }
+                this.issnWarning.Visibility = Visibility.Visible;
+                this.issnWarning.ToolTip = this.issnTextBox.ToolTip = error;
+                this.issnTextBox.BorderBrush = (SolidColorBrush)(new BrushConverter().ConvertFrom("#A50100"));
+            }
+            else
+            {
+                this.issnWarning.Visibility = Visibility.Hidden;
+                this.issnWarning.ToolTip = this.issnTextBox.ToolTip = null;
+                this.issnTextBox.BorderBrush = (SolidColorBrush)(new BrushConverter().ConvertFrom("#111111"));
             }
             // EAN - 12 numbers + checksum
-            if (!string.IsNullOrEmpty(this.eanTextBox.Text))
+            error = ValidateEan(this.eanTextBox.Text);
+            if (error != null)
             {
-
-                error = ValidateEan(this.eanTextBox.Text);
-                if (error != null)
-                {
-                    this.eanWarning.Visibility = Visibility.Visible;
-                    this.eanWarning.ToolTip = this.eanTextBox.ToolTip = error;
-                    this.eanTextBox.BorderBrush = (SolidColorBrush)(new BrushConverter().ConvertFrom("#A50100"));
-                }
-                else
-                {
-                    this.eanWarning.Visibility = Visibility.Hidden;
-                    this.eanWarning.ToolTip = this.eanTextBox.ToolTip = null;
-                    this.eanTextBox.BorderBrush = (SolidColorBrush)(new BrushConverter().ConvertFrom("#111111"));
-                }
+                this.eanWarning.Visibility = Visibility.Visible;
+                this.eanWarning.ToolTip = this.eanTextBox.ToolTip = error;
+                this.eanTextBox.BorderBrush = (SolidColorBrush)(new BrushConverter().ConvertFrom("#A50100"));
+            }
+            else
+            {
+                this.eanWarning.Visibility = Visibility.Hidden;
+                this.eanWarning.ToolTip = this.eanTextBox.ToolTip = null;
+                this.eanTextBox.BorderBrush = (SolidColorBrush)(new BrushConverter().ConvertFrom("#111111"));
             }
             // CNB - cnb + 9 numbers
-            if (!string.IsNullOrEmpty(this.cnbTextBox.Text))
+            error = ValidateCnb(this.cnbTextBox.Text);
+            if (error != null)
             {
-
-                error = ValidateCnb(this.cnbTextBox.Text);
-                if (error != null)
-                {
-                    this.cnbWarning.Visibility = Visibility.Visible;
-                    this.cnbWarning.ToolTip = this.cnbTextBox.ToolTip = error;
-                    this.cnbTextBox.BorderBrush = (SolidColorBrush)(new BrushConverter().ConvertFrom("#A50100"));
-                }
-                else
-                {
-                    this.cnbWarning.Visibility = Visibility.Hidden;
-                    this.cnbWarning.ToolTip = this.cnbTextBox.ToolTip = null;
-                    this.cnbTextBox.BorderBrush = (SolidColorBrush)(new BrushConverter().ConvertFrom("#111111"));
-                }
+                this.cnbWarning.Visibility = Visibility.Visible;
+                this.cnbWarning.ToolTip = this.cnbTextBox.ToolTip = error;
+                this.cnbTextBox.BorderBrush = (SolidColorBrush)(new BrushConverter().ConvertFrom("#A50100"));
+            }
+            else
+            {
+                this.cnbWarning.Visibility = Visibility.Hidden;
+                this.cnbWarning.ToolTip = this.cnbTextBox.ToolTip = null;
+                this.cnbTextBox.BorderBrush = (SolidColorBrush)(new BrushConverter().ConvertFrom("#111111"));
             }
             //OCLC - variable-length numeric string
-            if (!string.IsNullOrEmpty(this.oclcTextBox.Text))
+            error = ValidateOclc(this.oclcTextBox.Text);
+            if (error != null)
             {
-
-                error = ValidateOclc(this.oclcTextBox.Text);
-                if (error != null)
-                {
-                    this.oclcWarning.Visibility = Visibility.Visible;
-                    this.oclcWarning.ToolTip = this.oclcTextBox.ToolTip = error;
-                    this.oclcTextBox.BorderBrush = (SolidColorBrush)(new BrushConverter().ConvertFrom("#A50100"));
-                }
-                else
-                {
-                    this.oclcWarning.Visibility = Visibility.Hidden;
-                    this.oclcWarning.ToolTip = this.oclcTextBox.ToolTip = null;
-                    this.oclcTextBox.BorderBrush = (SolidColorBrush)(new BrushConverter().ConvertFrom("#111111"));
-                }
+                this.oclcWarning.Visibility = Visibility.Visible;
+                this.oclcWarning.ToolTip = this.oclcTextBox.ToolTip = error;
+                this.oclcTextBox.BorderBrush = (SolidColorBrush)(new BrushConverter().ConvertFrom("#A50100"));
+            }
+            else
+            {
+                this.oclcWarning.Visibility = Visibility.Hidden;
+                this.oclcWarning.ToolTip = this.oclcTextBox.ToolTip = null;
+                this.oclcTextBox.BorderBrush = (SolidColorBrush)(new BrushConverter().ConvertFrom("#111111"));
             }
         }
 
         // Validates given isbn, returns error message if invalid or null if valid
         private string ValidateIsbn(string isbn)
         {
+            if (string.IsNullOrWhiteSpace(isbn))
+            {
+                return null;
+            }
+
             string errorText = null;
             isbn = isbn.Replace("-", "");
             char[] isbnArray = isbn.ToCharArray();
@@ -624,8 +609,12 @@ namespace ScannerClient_obalkyknih
         // Validates given issn, returns error message if invalid or null if valid
         private string ValidateIssn(string issn)
         {
-            string errorText = null;
+            if (string.IsNullOrWhiteSpace(issn))
+            {
+                return null;
+            }
 
+            string errorText = null;
             issn = issn.Replace("-", "").Trim();
             char[] issnArray = issn.ToCharArray();
             if (issn.Length == 8)
@@ -662,6 +651,11 @@ namespace ScannerClient_obalkyknih
         // Validates given oclc, returns error message or null
         private string ValidateOclc(string oclc)
         {
+            if (string.IsNullOrWhiteSpace(oclc))
+            {
+                return null;
+            }
+
             if (!oclc.StartsWith("(OCoLC)"))
             {
                 return "OCLC nezačíná znaky (OCoLC)";
@@ -680,6 +674,11 @@ namespace ScannerClient_obalkyknih
         // Validates given cnb, returns error message or null
         private string ValidateCnb(string cnb)
         {
+            if (string.IsNullOrWhiteSpace(cnb))
+            {
+                return null;
+            }
+
             string errorText = null;
 
             if (cnb.StartsWith("cnb"))
@@ -709,6 +708,11 @@ namespace ScannerClient_obalkyknih
         // Validates given ean, returns error message or null
         private string ValidateEan(string ean)
         {
+            if (string.IsNullOrWhiteSpace(ean))
+            {
+                return null;
+            }
+
             string errorText = null;
 
             ean = ean.Replace("-", "").Trim();
@@ -761,7 +765,7 @@ namespace ScannerClient_obalkyknih
                 return;
             }
             //validate
-            string error = null;
+            string error = "";
             string isbn = this.isbnTextBox.Text;
             string issn = this.issnTextBox.Text;
             string oclc = this.oclcTextBox.Text;
@@ -776,27 +780,27 @@ namespace ScannerClient_obalkyknih
             if (!string.IsNullOrEmpty(isbn))
             {
                 nvc.Add("isbn", isbn);
-                error = ValidateIsbn(isbn);
+                error += ValidateIsbn(isbn);
             }
             if (!string.IsNullOrEmpty(issn))
             {
                 nvc.Add("issn", issn);
-                error = ValidateIssn(issn);
+                error += ValidateIssn(issn);
             }
             if (!string.IsNullOrEmpty(oclc))
             {
                 nvc.Add("oclc", oclc);
-                error = ValidateOclc(oclc);
+                error += ValidateOclc(oclc);
             }
             if (!string.IsNullOrEmpty(ean))
             {
                 nvc.Add("ean", ean);
-                error = ValidateEan(ean);
+                error += ValidateEan(ean);
             }
             if (!string.IsNullOrEmpty(cnb))
             {
                 nvc.Add("nbn", cnb);
-                error = ValidateCnb(cnb);
+                error += ValidateCnb(cnb);
             }
             if (!string.IsNullOrEmpty(urn))
             {
@@ -813,7 +817,7 @@ namespace ScannerClient_obalkyknih
                 }
             }
 
-            if (error != null)
+            if (!string.IsNullOrWhiteSpace(error))
             {
                 MessageBox.Show("Některý z identifikátorů obsahuje chybu." + Environment.NewLine + error,
                 "Chybný identifikátor", MessageBoxButton.OK, MessageBoxImage.Error);
@@ -958,7 +962,8 @@ namespace ScannerClient_obalkyknih
             param.Nvc = nvc;
 
             // Save working image in memory to file
-            if (workingImage.Key != Guid.Empty)
+            if (this.workingImage.Key != Guid.Empty &&
+                this.imagesFilePaths.ContainsKey(this.workingImage.Key))
             {
                 this.sendButton.IsEnabled = false;
                 try
@@ -2014,6 +2019,10 @@ namespace ScannerClient_obalkyknih
             this.tocPagesNumber.Content = pagesNumber + " " + pages;
             EnableImageControllers();
             this.ocrCheckBox.IsChecked = true;
+
+
+            (Window.GetWindow(this) as MainWindow).DeactivateUndo();
+            (Window.GetWindow(this) as MainWindow).DeactivateRedo();
         }
 
         // Removes colored border from all thumbnails
@@ -2164,14 +2173,24 @@ namespace ScannerClient_obalkyknih
 
                 if (guid != Guid.Empty)
                 {
-                    BitmapSource tmpImage = ImageTools.LoadFullSize(this.imagesFilePaths[guid]);
-                    backupImage = new KeyValuePair<string, BitmapSource>(this.imagesFilePaths[guid], tmpImage);
+                    if (guid != this.workingImage.Key)
+                    {
+                        this.backupImage = new KeyValuePair<string, BitmapSource>(this.imagesFilePaths[guid],
+                            ImageTools.LoadFullSize(this.imagesFilePaths[guid]));
+                    }
+                    else
+                    {
+                        this.backupImage = new KeyValuePair<string, BitmapSource>(this.imagesFilePaths[guid], this.workingImage.Value);
+                    }
                     SignalLoadedBackup();
                 }
 
                 try
                 {
-                    File.Delete(this.imagesFilePaths[guid]);
+                    if (File.Exists(this.imagesFilePaths[guid]))
+                    {
+                        File.Delete(this.imagesFilePaths[guid]);
+                    }
                 }
                 catch (Exception)
                 {
@@ -2259,6 +2278,34 @@ namespace ScannerClient_obalkyknih
             if (result == MessageBoxResult.Yes)
             {
                 DisableImageControllers();
+
+                (this.coverThumbnail.Parent as Border).BorderBrush = Brushes.Transparent;
+
+                if (this.coverGuid != this.workingImage.Key)
+                {
+                    this.backupImage = new KeyValuePair<string, BitmapSource>(this.imagesFilePaths[this.coverGuid],
+                        ImageTools.LoadFullSize(this.imagesFilePaths[this.coverGuid]));
+                }
+                else
+                {
+                    this.backupImage = new KeyValuePair<string, BitmapSource>(
+                        this.imagesFilePaths[this.coverGuid], this.workingImage.Value);
+                }
+                SignalLoadedBackup();
+
+                try
+                {
+                    if (File.Exists(this.imagesFilePaths[this.coverGuid]))
+                    {
+                        File.Delete(this.imagesFilePaths[this.coverGuid]);
+                    }
+                }
+                catch (Exception)
+                {
+                    MessageBox.Show("Nebylo možné zmazat soubor z disku.", "Chyba mazání souboru.", MessageBoxButton.OK,
+                        MessageBoxImage.Error);
+                }
+
                 this.imagesFilePaths.Remove(this.coverGuid);
                 this.imagesOriginalSizes.Remove(this.coverGuid);
                 this.coverGuid = Guid.Empty;
@@ -2287,6 +2334,7 @@ namespace ScannerClient_obalkyknih
                     this.selectedImage.Source = new BitmapImage(
                         new Uri("/ObalkyKnih-scanner;component/Images/default-icon.png", UriKind.Relative));
                 }
+                Mouse.OverrideCursor = null;
             }
         }
         #endregion
@@ -2294,158 +2342,184 @@ namespace ScannerClient_obalkyknih
         #region Undo/Redo
         internal void UndoLastStep()
         {
+            bool isCover = this.backupImage.Key.Contains(Settings.TemporaryFolder + "obalkyknih-cover_");
+
+            // get guid of backuped image from imagePaths or return empty guid
             Guid guid = (from record in this.imagesFilePaths
                          where record.Value.Equals(this.backupImage.Key)
                          select record.Key).SingleOrDefault();
-            bool isCover = this.backupImage.Key.Contains("cover");
-            bool isChanged = this.imagesFilePaths.ContainsValue(this.backupImage.Key);
 
-            // copy current image to redoImage and backupImage to current image
-            if (this.workingImage.Key == guid)
+            // if empty guid, create new one with new file path
+            if (guid == Guid.Empty)
             {
-                this.redoImage = new KeyValuePair<string, BitmapSource>(
-                    this.backupImage.Key, this.workingImage.Value);
+                while (this.imagesFilePaths.ContainsKey(guid) || guid == Guid.Empty)
+                {
+                    guid = Guid.NewGuid();
+                }
+
+                string newFileName = Settings.TemporaryFolder +
+                ((isCover) ? "obalkyknih-cover_" : "obalkyknih-toc_")
+                + barcode + "_" + guid + ".tif";
+                this.imagesFilePaths.Add(guid, newFileName);
             }
-            else
+
+            // reset redo
+            this.redoImage = new KeyValuePair<string, BitmapSource>(null, null);
+
+            // file was changed
+            if (this.imagesFilePaths.ContainsKey(this.workingImage.Key) &&
+                this.imagesFilePaths[this.workingImage.Key].Equals(this.backupImage.Key))
             {
-                try
-                {
-                    ImageTools.SaveToFile(this.workingImage.Value, this.imagesFilePaths[this.workingImage.Key]);
-                    this.redoImage = new KeyValuePair<string, BitmapSource>(
-                        this.backupImage.Key, ImageTools.LoadFullSize(this.backupImage.Key));
-                }
-                catch (Exception)
-                {
-                    MessageBox.Show("Nastal problém při ukládání obrázku do souboru.", "Chyba!", MessageBoxButton.OK,
-                        MessageBoxImage.Error);
-                    return;
-                }
-            }
-            this.workingImage = new KeyValuePair<Guid, BitmapSource>(guid, this.backupImage.Value);
-            BitmapSource newImage = ImageTools.LoadGivenSizeFromBitmapSource(this.workingImage.Value, 800);
+                // save current version to redo
+                this.redoImage = new KeyValuePair<string, BitmapSource>
+                    (this.backupImage.Key, this.workingImage.Value);
 
-            // if image was changed, else image was deleted
-            if (isChanged)
-            {
-                // image was changed
-                this.imagesOriginalSizes[guid] = new Size(this.workingImage.Value.PixelWidth, this.workingImage.Value.PixelHeight);
+                // renew current version from backup
+                this.workingImage = new KeyValuePair<Guid, BitmapSource>
+                    (guid, this.backupImage.Value);
 
-                if (this.selectedImageGuid == guid)
-                {
-                    this.selectedImage.Source = newImage;
-                }
+                // set new OriginalSize
+                this.imagesOriginalSizes.Remove(guid);
+                this.imagesOriginalSizes.Add(guid, new Size(this.workingImage.Value.PixelWidth,
+                    this.workingImage.Value.PixelHeight));
 
+                Image thumbnail;
                 if (isCover)
                 {
-                    this.coverThumbnail.Source = newImage;
+                    thumbnail = this.coverThumbnail;
                 }
                 else
                 {
-                    (LogicalTreeHelper.FindLogicalNode(this.tocThumbnailGridsDictionary[guid],
-                    "tocThumbnail") as Image).Source = newImage;
+                    thumbnail = LogicalTreeHelper.FindLogicalNode(
+                        this.tocThumbnailGridsDictionary[guid], "tocThumbnail") as Image;
                 }
+                thumbnail.Source = ImageTools.LoadGivenSizeFromBitmapSource(
+                        this.workingImage.Value, 800);
+                Thumbnail_Clicked(thumbnail, null);
             }
-            else
+            // file was deleted
+            else if (isCover)
             {
-                // image was deleted
-                Guid newGuid = new Guid();
-                while (this.imagesFilePaths.ContainsKey(newGuid))
+                // cover image was replaced, so put current cover to redo
+                if (this.imagesFilePaths.ContainsKey(this.workingImage.Key)
+                    &&this.coverGuid == this.workingImage.Key && this.coverGuid != Guid.Empty)
                 {
-                    newGuid = new Guid();
+                   this.redoImage = new KeyValuePair<string, BitmapSource>
+                       (this.imagesFilePaths[guid], this.workingImage.Value);
                 }
-                string newFileName = Settings.TemporaryFolder + ((isCover) ? "obalkyknih-cover_" : "obalkyknih-toc_")
-                    + barcode + "_" + newGuid + ".tif";
 
-                Size originalSize = new Size(this.backupImage.Value.PixelWidth, this.backupImage.Value.PixelHeight);
+                // load backup to working image
+                this.workingImage = new KeyValuePair<Guid, BitmapSource>(guid, this.backupImage.Value);
 
+                // set new OriginalSize
+                this.imagesOriginalSizes.Remove(guid);
+                this.imagesOriginalSizes.Add(guid, new Size(this.workingImage.Value.PixelWidth,
+                    this.workingImage.Value.PixelHeight));
 
-                this.imagesFilePaths.Add(newGuid, newFileName);
-                this.imagesOriginalSizes.Add(newGuid, originalSize);
+                AddCoverImage(ImageTools.LoadGivenSizeFromBitmapSource(this.workingImage.Value, 800),
+                        guid);
 
-                if (isCover)
-                {
-                    AddCoverImage(newImage, newGuid);
-                }
-                else
-                {
-                    AddTocImage(newImage, newGuid);
-                }
             }
 
+            // reset backup
             this.backupImage = new KeyValuePair<string, BitmapSource>(null, null);
+
             (Window.GetWindow(this) as MainWindow).DeactivateUndo();
-            if (isChanged || isCover)
+            if (this.redoImage.Value != null)
             {
                 (Window.GetWindow(this) as MainWindow).ActivateRedo();
             }
-            else
-            {
-                this.redoImage = new KeyValuePair<string, BitmapSource>(null, null);
-            }
-            GC.Collect();
         }
 
         internal void RedoLastStep()
         {
-            bool isCover = this.redoImage.Key.Contains("cover");
-            String backupFilePath = this.backupImage.Key;
-            Guid backupGuid = (from record in this.imagesFilePaths
-                               where record.Value.Equals(backupFilePath)
-                               select record.Key).SingleOrDefault();
+            bool isCover = this.redoImage.Key.Contains(Settings.TemporaryFolder + "obalkyknih-cover_");
 
-            String redoFilePath = this.redoImage.Key;
-            Guid redoGuid = (from record in this.imagesFilePaths
-                             where record.Value.Equals(redoFilePath)
-                             select record.Key).SingleOrDefault();
+            // get guid of backuped image from imagePaths or return empty guid
+            Guid guid = (from record in this.imagesFilePaths
+                         where record.Value.Equals(this.redoImage.Key)
+                         select record.Key).SingleOrDefault();
 
-            // save current to backup
-            if (this.workingImage.Key == redoGuid)
+            // if empty guid, create new one with new file path
+            if (guid == Guid.Empty)
             {
-                this.backupImage = new KeyValuePair<string, BitmapSource>(this.redoImage.Key,
-                    this.workingImage.Value);
-            }
-            else
-            {
-                this.backupImage = new KeyValuePair<string, BitmapSource>(this.redoImage.Key,
-                    ImageTools.LoadFullSize(this.redoImage.Key));
-                if (this.workingImage.Key != Guid.Empty && this.imagesFilePaths.ContainsKey(this.workingImage.Key))
+                while (this.imagesFilePaths.ContainsKey(guid) || guid == Guid.Empty)
                 {
-                    try
-                    {
-                        ImageTools.SaveToFile(this.workingImage.Value, this.imagesFilePaths[this.workingImage.Key]);
-                    }
-                    catch (Exception)
-                    {
-                        MessageBox.Show("Nastal problém při ukládání obrázku do souboru.", "Chyba!", MessageBoxButton.OK,
-                            MessageBoxImage.Error);
-                        return;
-                    }
+                    guid = Guid.NewGuid();
                 }
+
+                string newFileName = Settings.TemporaryFolder +
+                ((isCover) ? "obalkyknih-cover_" : "obalkyknih-toc_")
+                + barcode + "_" + guid + ".tif";
+                this.imagesFilePaths.Add(guid, newFileName);
             }
-            this.workingImage = new KeyValuePair<Guid, BitmapSource>(redoGuid, this.redoImage.Value);
-            BitmapSource newImage = ImageTools.LoadGivenSizeFromBitmapSource(this.redoImage.Value, 800);
 
-            this.imagesOriginalSizes.Remove(redoGuid);
-            this.imagesOriginalSizes.Add(redoGuid, new Size(this.redoImage.Value.PixelWidth, this.redoImage.Value.PixelHeight));
+            // reset redo
+            this.backupImage = new KeyValuePair<string, BitmapSource>(null, null);
 
-            if (this.selectedImageGuid == redoGuid)
+            // file was changed
+            if (this.imagesFilePaths.ContainsKey(this.workingImage.Key) &&
+                this.imagesFilePaths[this.workingImage.Key].Equals(this.redoImage.Key))
             {
-                this.selectedImage.Source = newImage;
+                // save current version to backup
+                this.backupImage = new KeyValuePair<string, BitmapSource>
+                    (this.redoImage.Key, this.workingImage.Value);
+
+                // renew current version from redo
+                this.workingImage = new KeyValuePair<Guid, BitmapSource>
+                    (guid, this.redoImage.Value);
+
+                // set new OriginalSize
+                this.imagesOriginalSizes.Remove(guid);
+                this.imagesOriginalSizes.Add(guid, new Size(this.workingImage.Value.PixelWidth,
+                    this.workingImage.Value.PixelHeight));
+
+                Image thumbnail;
+                if (isCover)
+                {
+                    thumbnail = this.coverThumbnail;
+                }
+                else
+                {
+                    thumbnail = LogicalTreeHelper.FindLogicalNode(
+                        this.tocThumbnailGridsDictionary[guid], "tocThumbnail") as Image;
+
+                }
+                thumbnail.Source = ImageTools.LoadGivenSizeFromBitmapSource(
+                        this.workingImage.Value, 800);
+                Thumbnail_Clicked(thumbnail, null);
+            }
+            // cover was replaced
+            else if (isCover)
+            {
+                // save working image to file
+                if (this.imagesFilePaths.ContainsKey(this.workingImage.Key)
+                    && this.coverGuid == this.workingImage.Key && this.coverGuid != Guid.Empty)
+                {
+                    this.redoImage = new KeyValuePair<string, BitmapSource>
+                        (this.imagesFilePaths[guid], this.workingImage.Value);
+                }
+
+                // load backup to working image
+                this.workingImage = new KeyValuePair<Guid, BitmapSource>(guid, this.backupImage.Value);
+
+                // set new OriginalSize
+                this.imagesOriginalSizes.Remove(guid);
+                this.imagesOriginalSizes.Add(guid, new Size(this.workingImage.Value.PixelWidth,
+                    this.workingImage.Value.PixelHeight));
+
+                AddCoverImage(ImageTools.LoadGivenSizeFromBitmapSource(this.workingImage.Value, 800),
+                        guid);
             }
 
-            if (isCover)
-            {
-                this.coverThumbnail.Source = newImage;
-            }
-            else
-            {
-                (LogicalTreeHelper.FindLogicalNode(this.tocThumbnailGridsDictionary[redoGuid],
-                "tocThumbnail") as Image).Source = newImage;
-            }
-
+            // reset redo
             this.redoImage = new KeyValuePair<string, BitmapSource>(null, null);
+
             (Window.GetWindow(this) as MainWindow).DeactivateRedo();
-            (Window.GetWindow(this) as MainWindow).ActivateUndo();
+            if (this.backupImage.Value != null)
+            {
+                (Window.GetWindow(this) as MainWindow).ActivateUndo();
+            }
         }
         #endregion
 
@@ -2511,6 +2585,14 @@ namespace ScannerClient_obalkyknih
         {
             if (this.selectedImageGuid == Guid.Empty)
             {
+                AdornerLayer aly = AdornerLayer.GetAdornerLayer(this.selectedImage);
+                if (aly.GetAdorners(this.selectedImage) != null)
+                {
+                    foreach (var adorner in aly.GetAdorners(this.selectedImage))
+                    {
+                        aly.Remove(adorner);
+                    }
+                }
                 return;
             }
             BitmapSource source = this.selectedImage.Source as BitmapSource;

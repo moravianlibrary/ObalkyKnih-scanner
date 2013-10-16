@@ -423,6 +423,12 @@ namespace ScannerClient_obalkyknih
             {
                 xServerUrl = "https://" + xServerUrl;
             }
+            // if /X is already in name, remove 'X'
+            if (xServerUrl.EndsWith("/X"))
+            {
+                xServerUrl.TrimEnd('X');
+            }
+            // remove trailing '/'
             xServerUrl.TrimEnd('/');
 
             Metadata metadata = new Metadata();
