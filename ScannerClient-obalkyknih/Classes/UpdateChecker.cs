@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Linq;
 using System.Xml.Linq;
-using System.Reflection;
 using Microsoft.Win32;
 
 
@@ -45,16 +44,6 @@ namespace ScannerClient_obalkyknih
         public string Checksum { get; private set; }
 
         /// <summary>
-        /// Retrieves version from Assembly (can be set in Properties->Application->Assembly Version)
-        /// </summary>
-        public Version Version {
-            get
-            {
-                return Assembly.GetEntryAssembly().GetName().Version;
-            }
-        }
-
-        /// <summary>
         /// Retrieves all possible information about updates and saves them to properties
         /// </summary>
         public void RetrieveUpdateInfo()
@@ -66,7 +55,7 @@ namespace ScannerClient_obalkyknih
                 //check if current version is in list of unsupported versions
                 var unsupportedVersionElements = xDocument.Root.Element("unsupported-versions").Elements("version");
                 int count = unsupportedVersionElements.Count(
-                    el => (int.Parse(el.Element("major").Value) == this.Version.Major && int.Parse(el.Element("minor").Value) == this.Version.Minor)
+                    el => (int.Parse(el.Element("major").Value) == Settings.Version.Major && int.Parse(el.Element("minor").Value) == Settings.Version.Minor)
                     );
                 if (count == 0)
                 {
@@ -106,7 +95,7 @@ namespace ScannerClient_obalkyknih
                     throw new FormatException();
                 }
 
-                if (!this.IsSupportedVersion || Version.CompareTo(AvailableVersion) < 0)
+                if (!this.IsSupportedVersion || Settings.Version.CompareTo(AvailableVersion) < 0)
                 {
                     this.IsUpdateAvailable = true;
                 }

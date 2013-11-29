@@ -86,7 +86,7 @@
                   BorderThickness="{TemplateBinding BorderThickness}" 
                   Background="{TemplateBinding Background}"  
                   BorderBrush="{TemplateBinding BorderBrush}"
-                  RenderTransformOrigin="0.5,0.5">
+                  RenderTransformOrigin="0.5,0.5" Padding="20,0">
                             <ContentPresenter x:Name="ButtonContentPresenter"
                                 VerticalAlignment="Center"  
                                 HorizontalAlignment="Center" />

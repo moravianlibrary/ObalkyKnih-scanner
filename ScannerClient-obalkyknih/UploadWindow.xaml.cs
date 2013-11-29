@@ -31,8 +31,9 @@ namespace ScannerClient_obalkyknih
         {
             if (!isClosable)
             {
-                MessageBox.Show("Prosím počkejte než se odešlou všechny soubory.", "Vydržte prosím",
-                    MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBoxDialogWindow.Show("Vydržte prosím",
+                    "Prosím počkejte než se odešlou všechny soubory.",
+                    "OK", MessageBoxDialogWindow.Icons.Information);
                 e.Cancel = true;
             }
         }

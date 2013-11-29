@@ -152,7 +152,7 @@
                                Width="18" Source="/ObalkyKnih-scanner;component/Images/ok-icon-warning.png" HorizontalAlignment="Right" />
                         <Button Name="showCompleteMetadataButton" Content="Zobrazit metadatový záznam" IsEnabled="False" Height="30"
                                 HorizontalAlignment="Center" Margin="0,544,0,0" Foreground="#b4b4b4" BorderBrush="#353535" Cursor="Hand"
-                                VerticalAlignment="Top" Width="165" Click="showCompleteMetadataButton_Click" BorderThickness="1"
+                                VerticalAlignment="Top" Width="185" Click="showCompleteMetadataButton_Click" BorderThickness="1"
                                 Style="{StaticResource MyButton}" ToolTip="Zobrazit úplný metadatový záznam stažený z katalogu">
                             <Button.Background>
                                 <LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,1">
@@ -163,7 +163,7 @@
                         </Button>
                         <Button Name="downloadMetadataButton" Content="Znovu stáhnout" HorizontalAlignment="Center" Margin="0,584,0,0"
                                Foreground="#b4b4b4" Height="30" BorderBrush="#353535" Cursor="Hand"
-                                VerticalAlignment="Top" Width="165" Click="DownloadMetadataButton_Click" BorderThickness="1"
+                                VerticalAlignment="Top" Width="185" Click="DownloadMetadataButton_Click" BorderThickness="1"
                                 Style="{StaticResource MyButton}" ToolTip="Znovu stáhnout informace z katalogu a z Obálek Knih">
                             <Button.Background>
                             <LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,1">

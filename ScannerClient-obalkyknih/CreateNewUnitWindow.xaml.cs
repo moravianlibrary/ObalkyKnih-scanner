@@ -59,7 +59,7 @@ namespace ScannerClient_obalkyknih
             if (string.IsNullOrWhiteSpace(barcode))
             {
                 //show error message, if barcode was not entered
-                MessageBox.Show("Zadejte čárový kód.", "Chyba!", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBoxDialogWindow.Show("Chyba!", "Zadejte čárový kód.", "OK", MessageBoxDialogWindow.Icons.Error);
                 return;
             }
 

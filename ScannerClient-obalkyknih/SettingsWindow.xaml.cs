@@ -6,9 +6,7 @@ using System.Windows.Input;
 
 namespace ScannerClient_obalkyknih
 {
-    /// <summary>
-    /// Interaction logic for SettingsWindow.xaml
-    /// </summary>
+    /// <summary>Interaction logic for SettingsWindow.xaml</summary>
     public partial class SettingsWindow : Window
     {
         // close on escape
@@ -30,20 +28,21 @@ namespace ScannerClient_obalkyknih
         // Loads settings from Settings class and writes them to components
         private void LoadSettings()
         {
+            this.z39ServerRadioButton.IsEnabled = !Settings.IsAdminIsZ39Enabled;
             this.z39ServerRadioButton.IsChecked = Settings.IsZ39Enabled;
-            this.z39ServerTextBox.Text = Settings.Z39Server;
+            this.z39ServerTextBox.IsEnabled = !Settings.IsAdminZ39ServerUrl && Settings.IsZ39Enabled;
+            this.z39ServerTextBox.Text = Settings.Z39ServerUrl;
+            this.z39PortTextBox.IsEnabled = !Settings.IsAdminZ39Port && Settings.IsZ39Enabled;
             this.z39PortTextBox.Text = Settings.Z39Port.ToString();
+            this.z39DatabaseTextBox.IsEnabled = !Settings.IsAdminZ39Base && Settings.IsZ39Enabled;
             this.z39DatabaseTextBox.Text = Settings.Z39Base;
+            this.z39UserNameTextBox.IsEnabled = !Settings.IsAdminZ39UserName && Settings.IsZ39Enabled;
             this.z39UserNameTextBox.Text = Settings.Z39UserName;
+            this.z39PasswordTextBox.IsEnabled = !Settings.IsAdminZ39Password && Settings.IsZ39Enabled;
             this.z39PasswordTextBox.Text = Settings.Z39Password;
+            this.z39BarcodeField.IsEnabled = !Settings.IsAdminZ39BarcodeField && Settings.IsZ39Enabled;
             this.z39BarcodeField.Text = Settings.Z39BarcodeField.ToString();
-
-            this.xServerRadioButton.IsChecked = Settings.IsXServerEnabled;
-            this.xServerUrlTextBox.Text = Settings.XServerUrl;
-            this.xServerDatabaseTextBox.Text = Settings.XServerBase;
-
-            this.siglaTextBox.Text = Settings.Sigla;
-            
+            this.z39EncodingComboBox.IsEnabled = !Settings.IsAdminZ39Encoding && Settings.IsZ39Enabled;
             if (Settings.Z39Encoding == Record_Character_Encoding.MARC)
             {
                 this.z39EncodingComboBox.SelectedIndex = 2;
@@ -56,6 +55,35 @@ namespace ScannerClient_obalkyknih
             {
                 this.z39EncodingComboBox.SelectedIndex = 0;
             }
+
+            this.xServerRadioButton.IsEnabled = !Settings.IsAdminIsXServerEnabled;
+            this.xServerRadioButton.IsChecked = Settings.IsXServerEnabled;
+            this.xServerUrlTextBox.IsEnabled = !Settings.IsAdminXServerUrl && Settings.IsXServerEnabled;
+            this.xServerUrlTextBox.Text = Settings.XServerUrl;
+            this.xServerDatabaseTextBox.IsEnabled = !Settings.IsAdminXServerBase && Settings.IsXServerEnabled;
+            this.xServerDatabaseTextBox.Text = Settings.XServerBase;
+
+            this.siglaTextBox.IsEnabled = !Settings.IsAdminSigla;
+            this.siglaTextBox.Text = Settings.Sigla;
+
+            this.baseTextBox.IsEnabled = !Settings.IsAdminBase;
+            this.baseTextBox.Text = Settings.Base;
+
+            this.alwaysDownloadUpdatesCheckBox.IsEnabled = !Settings.DisableUpdate;
+            this.neverDownloadUpdatesCheckBox.IsChecked = Settings.DisableUpdate ? 
+                true : Settings.NeverDownloadUpdates;
+
+            this.neverDownloadUpdatesCheckBox.IsEnabled = !Settings.DisableUpdate;
+            this.alwaysDownloadUpdatesCheckBox.IsChecked = Settings.DisableUpdate ?
+                false : Settings.AlwaysDownloadUpdates;
+
+            this.disableClosingConfirmationCheckBox.IsChecked = Settings.DisableClosingConfirmation;
+            this.disableMissingAuthorYearNotificationCheckBox.IsChecked = Settings.DisableMissingAuthorYearNotification;
+            this.disableWithoutCoverNotificationCheckBox.IsChecked = Settings.DisableWithoutCoverNotification;
+            this.disableWithoutTocNotificationCheckBox.IsChecked = Settings.DisableWithoutTocNotification;
+            this.disableCoverDeletionNotificationCheckBox.IsChecked = Settings.DisableCoverDeletionNotification;
+            this.disableTocDeletionNotificationCheckBox.IsChecked = Settings.DisableTocDeletionNotification;
+            this.disableCustomIdentifierNotificationCheckBox.IsChecked = Settings.DisableCustomIdentifierNotification;
         }
 
         // Enables XServer components, disables Z39.50 components
@@ -69,21 +97,21 @@ namespace ScannerClient_obalkyknih
             this.z39UserNameTextBox.IsEnabled = false;
             this.z39PasswordTextBox.IsEnabled = false;
             this.z39BarcodeField.IsEnabled = false;
-            this.xServerUrlTextBox.IsEnabled = true;
-            this.xServerDatabaseTextBox.IsEnabled = true;
+            this.xServerUrlTextBox.IsEnabled = !Settings.IsAdminXServerUrl;
+            this.xServerDatabaseTextBox.IsEnabled = !Settings.IsAdminXServerUrl;
         }
 
         // Enables Z39.50 components, disables XServer components
         private void Z39ServerRadioButton_Checked(object sender, RoutedEventArgs e)
         {
             this.xServerRadioButton.IsChecked = false;
-            this.z39ServerTextBox.IsEnabled = true;
-            this.z39PortTextBox.IsEnabled = true;
-            this.z39DatabaseTextBox.IsEnabled = true;
-            this.z39EncodingComboBox.IsEnabled = true;
-            this.z39UserNameTextBox.IsEnabled = true;
-            this.z39PasswordTextBox.IsEnabled = true;
-            this.z39BarcodeField.IsEnabled = true;
+            this.z39ServerTextBox.IsEnabled = !Settings.IsAdminZ39ServerUrl;
+            this.z39PortTextBox.IsEnabled = !Settings.IsAdminZ39Port;
+            this.z39DatabaseTextBox.IsEnabled = !Settings.IsAdminZ39Base;
+            this.z39EncodingComboBox.IsEnabled = !Settings.IsAdminZ39Encoding;
+            this.z39UserNameTextBox.IsEnabled = !Settings.IsAdminZ39UserName;
+            this.z39PasswordTextBox.IsEnabled = !Settings.IsAdminZ39Password;
+            this.z39BarcodeField.IsEnabled = !Settings.IsAdminZ39BarcodeField;
             this.xServerUrlTextBox.IsEnabled = false;
             this.xServerDatabaseTextBox.IsEnabled = false;
         }
@@ -97,7 +125,7 @@ namespace ScannerClient_obalkyknih
             }
             Settings.IsZ39Enabled = (bool) this.z39ServerRadioButton.IsChecked;
             Settings.IsXServerEnabled = (bool) this.xServerRadioButton.IsChecked;
-            Settings.Z39Server = this.z39ServerTextBox.Text;
+            Settings.Z39ServerUrl = this.z39ServerTextBox.Text;
             Settings.Z39Port = int.Parse(this.z39PortTextBox.Text);
             Settings.Z39Base = this.z39DatabaseTextBox.Text;
             Settings.Z39UserName = this.z39UserNameTextBox.Text;
@@ -120,6 +148,18 @@ namespace ScannerClient_obalkyknih
             Settings.XServerBase = this.xServerDatabaseTextBox.Text;
             
             Settings.Sigla = this.siglaTextBox.Text;
+            Settings.Base = this.baseTextBox.Text;
+
+            // Additional settings
+            Settings.DisableClosingConfirmation = (bool)this.disableClosingConfirmationCheckBox.IsChecked;
+            Settings.NeverDownloadUpdates = (bool)this.neverDownloadUpdatesCheckBox.IsChecked;
+            Settings.AlwaysDownloadUpdates = (bool)this.alwaysDownloadUpdatesCheckBox.IsChecked;
+            Settings.DisableMissingAuthorYearNotification = (bool)this.disableMissingAuthorYearNotificationCheckBox.IsChecked;
+            Settings.DisableWithoutCoverNotification = (bool)this.disableWithoutCoverNotificationCheckBox.IsChecked;
+            Settings.DisableWithoutTocNotification = (bool)this.disableWithoutTocNotificationCheckBox.IsChecked;
+            Settings.DisableCoverDeletionNotification = (bool)this.disableCoverDeletionNotificationCheckBox.IsChecked;
+            Settings.DisableTocDeletionNotification = (bool)this.disableTocDeletionNotificationCheckBox.IsChecked;
+            Settings.DisableCustomIdentifierNotification = (bool)this.disableCustomIdentifierNotificationCheckBox.IsChecked;
             
             Settings.PersistSettings();
 
@@ -190,7 +230,7 @@ namespace ScannerClient_obalkyknih
 
             if (!isValid)
             {
-                MessageBox.Show(errorMsg, "Nastavení obsahují chyby", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBoxDialogWindow.Show("Nastavení obsahují chyby", errorMsg, "OK", MessageBoxDialogWindow.Icons.Error);
             }
             return isValid;
         }
@@ -206,6 +246,18 @@ namespace ScannerClient_obalkyknih
         private void CloseExecuted(object sender, ExecutedRoutedEventArgs e)
         {
             this.Close();
+        }
+
+        // change other value of always/never
+        private void AlwaysDownloadUpdatesCheckBox_Checked(object sender, RoutedEventArgs e)
+        {
+            this.neverDownloadUpdatesCheckBox.IsChecked = false;
+        }
+
+        // change other value always/never
+        private void NeverDownloadUpdatesCheckBox_Checked(object sender, RoutedEventArgs e)
+        {
+            this.alwaysDownloadUpdatesCheckBox.IsChecked = false;
         }
     }
 }

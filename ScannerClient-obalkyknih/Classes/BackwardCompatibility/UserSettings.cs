@@ -121,20 +121,20 @@ namespace ScannerClient_obalkyknih
         /// </summary>
         public void SyncToSettings()
         {
-            Settings.UserName = this.UserName;
-            Settings.Password = GetDecryptedPassword(this.Password);
-            Settings.IsXServerEnabled = this.IsXServerEnabled;
-            Settings.XServerUrl = this.XServerUrl;
-            Settings.XServerBase = this.XServerBase;
-            Settings.IsZ39Enabled = this.IsZ39Enabled;
-            Settings.Z39Server = this.Z39Server;
-            Settings.Z39Port = this.Z39Port;
-            Settings.Z39Base = this.Z39Base;
-            Settings.Z39Encoding = this.Z39Encoding;
-            Settings.Z39UserName = this.Z39UserName;
-            Settings.Z39Password = this.Z39Password;
-            Settings.Z39BarcodeField = this.Z39BarcodeField;
-            Settings.Sigla = this.Sigla;
+            OldSettings.UserName = this.UserName;
+            OldSettings.Password = GetDecryptedPassword(this.Password);
+            OldSettings.IsXServerEnabled = this.IsXServerEnabled;
+            OldSettings.XServerUrl = this.XServerUrl;
+            OldSettings.XServerBase = this.XServerBase;
+            OldSettings.IsZ39Enabled = this.IsZ39Enabled;
+            OldSettings.Z39Server = this.Z39Server;
+            OldSettings.Z39Port = this.Z39Port;
+            OldSettings.Z39Base = this.Z39Base;
+            OldSettings.Z39Encoding = this.Z39Encoding;
+            OldSettings.Z39UserName = this.Z39UserName;
+            OldSettings.Z39Password = this.Z39Password;
+            OldSettings.Z39BarcodeField = this.Z39BarcodeField;
+            OldSettings.Sigla = this.Sigla;
         }
 
         /// <summary>
@@ -142,21 +142,21 @@ namespace ScannerClient_obalkyknih
         /// </summary>
         public void SyncFromSettings()
         {
-            this.UserName = Settings.UserName;
-            this.Password = this.GetEncryptedPassword(Settings.Password);
-            this.IsXServerEnabled = Settings.IsXServerEnabled;
-            this.XServerUrl = Settings.XServerUrl;
-            this.XServerBase = Settings.XServerBase;
-            this.IsZ39Enabled = Settings.IsZ39Enabled;
-            this.Z39Server = Settings.Z39Server;
-            this.Z39Port = Settings.Z39Port;
-            this.Z39Base = Settings.Z39Base;
-            this.Z39Encoding = (Settings.Z39Encoding == 0) ?
-                Record_Character_Encoding.Unicode : Settings.Z39Encoding;
-            this.Z39UserName = Settings.Z39UserName;
-            this.Z39Password = Settings.Z39Password;
-            this.Z39BarcodeField = Settings.Z39BarcodeField;
-            this.Sigla = Settings.Sigla;
+            this.UserName = OldSettings.UserName;
+            this.Password = this.GetEncryptedPassword(OldSettings.Password);
+            this.IsXServerEnabled = OldSettings.IsXServerEnabled;
+            this.XServerUrl = OldSettings.XServerUrl;
+            this.XServerBase = OldSettings.XServerBase;
+            this.IsZ39Enabled = OldSettings.IsZ39Enabled;
+            this.Z39Server = OldSettings.Z39Server;
+            this.Z39Port = OldSettings.Z39Port;
+            this.Z39Base = OldSettings.Z39Base;
+            this.Z39Encoding = (OldSettings.Z39Encoding == 0) ?
+                Record_Character_Encoding.Unicode : OldSettings.Z39Encoding;
+            this.Z39UserName = OldSettings.Z39UserName;
+            this.Z39Password = OldSettings.Z39Password;
+            this.Z39BarcodeField = OldSettings.Z39BarcodeField;
+            this.Sigla = OldSettings.Sigla;
         }
     }
 }

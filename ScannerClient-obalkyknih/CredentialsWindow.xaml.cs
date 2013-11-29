@@ -40,11 +40,7 @@ namespace ScannerClient_obalkyknih
         {
             Settings.UserName = this.userNameTextBox.Text;
             Settings.Password = this.passwordBox.Password;
-
-            if ((bool) this.saveCredentialsCheckBox.IsChecked)
-            {
-                Settings.PersistSettings();
-            }
+            Settings.PersistSettings();
 
             //close settings window
             Window parentWindow = Window.GetWindow(this);
@@ -67,10 +63,29 @@ namespace ScannerClient_obalkyknih
             this.Close();
         }
 
+        // Open link in browser
         private void Hyperlink_RequestNavigate(object sender, RequestNavigateEventArgs e)
         {
             Process.Start(new ProcessStartInfo(e.Uri.AbsoluteUri));
             e.Handled = true;
+        }
+
+        // Save on Enter key in password textbox
+        private void passwordBox_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter)
+            {
+                SaveButton_Click(null, null);
+            }
+        }
+
+        // Focus to passwordBox on Enter key in userNameTextBox
+        private void userNameTextBox_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter)
+            {
+                this.passwordBox.Focus();
+            }
         }
     }
 }

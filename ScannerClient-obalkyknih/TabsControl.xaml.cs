@@ -337,8 +337,8 @@ namespace ScannerClient_obalkyknih
             this.downloadMetadataButton.IsEnabled = true;
             if (e.Error != null)
             {
-                MessageBox.Show(e.Error.Message, "Chyba při stahování metadat",
-                    MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBoxDialogWindow.Show("Chyba při stahování metadat", e.Error.Message,
+                    "OK", MessageBoxDialogWindow.Icons.Error);
             }
             else if (!e.Cancelled)
             {
@@ -350,7 +350,7 @@ namespace ScannerClient_obalkyknih
                     if (this.metadataRetriever.Warnings.Count > 0)
                     {
                         string message = string.Join(Environment.NewLine, this.metadataRetriever.Warnings);
-                        MessageBox.Show(message, "Duplicitní identifikátor", MessageBoxButton.OK, MessageBoxImage.Information);
+                        MessageBoxDialogWindow.Show("Duplicitní identifikátor", message, "OK", MessageBoxDialogWindow.Icons.Information);
                     }
                 }
                 DownloadCoverAndToc();
@@ -449,7 +449,30 @@ namespace ScannerClient_obalkyknih
             this.oclcTextBox.Text = metadata.OCLC;
             this.eanTextBox.Text = metadata.EAN;
             this.urnNbnTextBox.Text = metadata.URN;
-            this.siglaTextBox.Text = metadata.Custom;
+            // if all identifiers are empty, fill custom id
+            if (string.IsNullOrWhiteSpace(this.isbnTextBox.Text)
+                && string.IsNullOrWhiteSpace(this.issnTextBox.Text)
+                && string.IsNullOrWhiteSpace(this.cnbTextBox.Text)
+                && string.IsNullOrWhiteSpace(this.oclcTextBox.Text)
+                && string.IsNullOrWhiteSpace(this.eanTextBox.Text)
+                && string.IsNullOrWhiteSpace(this.urnNbnTextBox.Text)
+                && !string.IsNullOrWhiteSpace(metadata.Custom))
+            {
+                this.siglaTextBox.Text = metadata.Custom;
+
+                if (!Settings.DisableCustomIdentifierNotification)
+                {
+                    bool dontAskAgain;
+                    MessageBoxDialogWindow.Show("Chybějící identifikátor",
+                        "Záznam nemá žádný unikátní identifikátor, proto mu byl vytvořen jeden spojením báze a systémového čísla.\n"
+                        + "Prosím zkontrolujte, zda je v poli 'Vlastní' opravdu uvedena správná báze a systémové číslo.\n"
+                        + "Sigla bude AUTOMATICKY připojena při odeslání, nevyplňujte ji.\n"
+                        + "Finální identifikátor při odeslání: " + Settings.Sigla + "-" + siglaTextBox.Text, out dontAskAgain,
+                        "Příště nezobrazovat", "OK", MessageBoxDialogWindow.Icons.Warning);
+
+                    Settings.DisableCustomIdentifierNotification = dontAskAgain;
+                }
+            }
 
             ValidateIdentifiers(null, null);
         }
@@ -760,8 +783,8 @@ namespace ScannerClient_obalkyknih
             //sw.Start();
             if (string.IsNullOrWhiteSpace(Settings.UserName))
             {
-                MessageBox.Show("Nastavte přihlašovací údaje.", "Žádné přihlašovací údaje",
-                    MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBoxDialogWindow.Show("Žádné přihlašovací údaje", "Nastavte přihlašovací údaje.",
+                    "OK", MessageBoxDialogWindow.Icons.Error);
                 return;
             }
             //validate
@@ -819,8 +842,9 @@ namespace ScannerClient_obalkyknih
 
             if (!string.IsNullOrWhiteSpace(error))
             {
-                MessageBox.Show("Některý z identifikátorů obsahuje chybu." + Environment.NewLine + error,
-                "Chybný identifikátor", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBoxDialogWindow.Show("Chybný identifikátor",
+                    "Některý z identifikátorů obsahuje chybu." + Environment.NewLine + error,
+                    "OK", MessageBoxDialogWindow.Icons.Error);
                 return;
             }
 
@@ -828,27 +852,36 @@ namespace ScannerClient_obalkyknih
                 && string.IsNullOrEmpty(oclc) && string.IsNullOrEmpty(ean) && string.IsNullOrEmpty(urn)
                 && string.IsNullOrEmpty(custom))
             {
-                MessageBox.Show("Vyplňte alespoň jeden identifikátor." + Environment.NewLine + error,
-                "Žádný identifikátor", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBoxDialogWindow.Show("Žádný identifikátor",
+                    "Vyplňte alespoň jeden identifikátor." + Environment.NewLine + error,
+                    "OK", MessageBoxDialogWindow.Icons.Error);
                 return;
             }
 
             if (string.IsNullOrWhiteSpace(this.titleTextBox.Text))
             {
-                MessageBox.Show("Název musí být vyplněn." + Environment.NewLine + error,
-               "Žádný název", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBoxDialogWindow.Show("Žádný název",
+                    "Název musí být vyplněn." + Environment.NewLine + error,
+                    "OK", MessageBoxDialogWindow.Icons.Error);
                 return;
             }
 
-            if (string.IsNullOrWhiteSpace(this.authorTextBox.Text)
+            if ((string.IsNullOrWhiteSpace(this.authorTextBox.Text)
                 || string.IsNullOrWhiteSpace(this.yearTextBox.Text))
+                && !Settings.DisableMissingAuthorYearNotification)
             {
-                var result = MessageBox.Show("Chybí autor nebo rok vydání. Opravdu chcete odeslat obálku bez toho?"
-                    + Environment.NewLine + error,
-                "Chybí základní informace.", MessageBoxButton.YesNo, MessageBoxImage.Warning);
-                if (result != MessageBoxResult.Yes)
+                bool dontShowAgain;
+                var result = MessageBoxDialogWindow.Show("Chybí základní informace.",
+                    "Chybí autor nebo rok vydání. Opravdu chcete odeslat obálku bez toho?"
+                    + Environment.NewLine + error, out dontShowAgain, "Příště se neptat a odeslat",
+                    "Ano", "Ne", false, MessageBoxDialogWindow.Icons.Warning);
+                if (result != true)
                 {
                     return;
+                }
+                if (dontShowAgain)
+                {
+                    Settings.DisableMissingAuthorYearNotification = true;
                 }
             }
 
@@ -862,24 +895,39 @@ namespace ScannerClient_obalkyknih
             List<string> tocFileNames = new List<string>();
 
             //cover
-            if (this.coverGuid == Guid.Empty)
+            if (this.coverGuid == Guid.Empty && !Settings.DisableWithoutCoverNotification)
             {
-                var result = MessageBox.Show("Opravdu chcete odeslat data bez obálky?",
-                "Chybí obálka.", MessageBoxButton.YesNo, MessageBoxImage.Warning);
-                if (result != MessageBoxResult.Yes)
+                bool dontShowAgain;
+                var result = MessageBoxDialogWindow.Show("Chybí obálka.", "Opravdu chcete odeslat data bez obálky?",
+                    out dontShowAgain, "Příště se neptat a odeslat", "Ano", "Ne", false,
+                    MessageBoxDialogWindow.Icons.Warning);
+                if (result != true)
                 {
                     return;
+                }
+                if (dontShowAgain)
+                {
+                    Settings.DisableWithoutCoverNotification = true;
                 }
             }
 
             //toc
             if (!this.tocImagesList.HasItems)
             {
-                var result = MessageBox.Show("Opravdu chcete odeslat data bez obsahu?",
-                "Chybí obsah", MessageBoxButton.YesNo, MessageBoxImage.Warning);
-                if (result != MessageBoxResult.Yes)
+                if (!Settings.DisableWithoutTocNotification)
                 {
-                    return;
+                    bool dontShowAgain;
+                    var result = MessageBoxDialogWindow.Show("Chybí obsah", "Opravdu chcete odeslat data bez obsahu?",
+                        out dontShowAgain, "Příště se neptat a odeslat", "Ano", "Ne", false,
+                        MessageBoxDialogWindow.Icons.Warning);
+                    if (result != true)
+                    {
+                        return;
+                    }
+                    if (dontShowAgain)
+                    {
+                        Settings.DisableWithoutTocNotification = true;
+                    }
                 }
             }
             else
@@ -949,8 +997,8 @@ namespace ScannerClient_obalkyknih
             }
             catch (Exception)
             {
-                MessageBox.Show("Nastala chyba při tvorbě metasouboru, oznamte to prosím autorovi programu.",
-                        "Chybný metasoubor", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBoxDialogWindow.Show("Chybný metasoubor", "Nastala chyba při tvorbě metasouboru, oznamte to prosím autorovi programu.",
+                        "OK", MessageBoxDialogWindow.Icons.Error);
                 return;
             }
 
@@ -972,8 +1020,8 @@ namespace ScannerClient_obalkyknih
                 }
                 catch (Exception)
                 {
-                    MessageBox.Show("Nastal problém při ukládání obrázku do souboru.", "Chyba!", MessageBoxButton.OK,
-                        MessageBoxImage.Error);
+                    MessageBoxDialogWindow.Show("Chyba!", "Nastal problém při ukládání obrázku do souboru.", "OK",
+                        MessageBoxDialogWindow.Icons.Error);
                     this.sendButton.IsEnabled = true;
                     return;
                 }
@@ -1188,12 +1236,13 @@ namespace ScannerClient_obalkyknih
                     {
                         message = (e.Error as WebException).Status + ": " + e.Error.Message;
                     }
-                    MessageBox.Show(message, "Odesílání neúspěšné", MessageBoxButton.OK, MessageBoxImage.Error);
+                    MessageBoxDialogWindow.Show("Odesílání neúspěšné", message, "OK", MessageBoxDialogWindow.Icons.Error);
                 }
                 else
                 {
-                    MessageBox.Show("Počas odesílání nastala neznámá výjimka, je možné, že data nebyli odeslány.",
-                        "Chyba odesílání", MessageBoxButton.OK, MessageBoxImage.Error);
+                    MessageBoxDialogWindow.Show("Chyba odesílání",
+                        "Počas odesílání nastala neznámá výjimka, je možné, že data nebyla odeslána.",
+                        "OK", MessageBoxDialogWindow.Icons.Error);
                 }
             }
             else if (!e.Cancelled)
@@ -1207,13 +1256,14 @@ namespace ScannerClient_obalkyknih
                     Metadata m = GetMetadataFromTextBoxes();
                     metadataReceiverBackgroundWorker.RunWorkerAsync(m);
 
-                    MessageBox.Show("Odesílání úspěšné.",
-                        "Odesláno", MessageBoxButton.OK, MessageBoxImage.Information);
+                    MessageBoxDialogWindow.Show("Odesláno", "Odesílání úspěšné.",
+                        "OK", MessageBoxDialogWindow.Icons.Information);
                 }
                 else
                 {
-                    MessageBox.Show("Server nepotvrdil zpracování dat. Je možné, že data nebyly zpracovány správně."
-                        + response, "Zpracování nepotvrzené", MessageBoxButton.OK, MessageBoxImage.Information);
+                    MessageBoxDialogWindow.Show("Zpracování nepotvrzené",
+                        "Server nepotvrdil zpracování dat. Je možné, že data nebyla zpracována správně." + response,
+                        "OK", MessageBoxDialogWindow.Icons.Warning);
                 }
             }
         }
@@ -1323,7 +1373,7 @@ namespace ScannerClient_obalkyknih
             }
             catch (System.Runtime.InteropServices.COMException)
             {
-                MessageBox.Show("Skenování nebylo úspěšné.", "Chyba!", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBoxDialogWindow.Show("Chyba!", "Skenování nebylo úspěšné.", "OK", MessageBoxDialogWindow.Icons.Error);
                 return;
             }
 
@@ -1376,8 +1426,8 @@ namespace ScannerClient_obalkyknih
                 }
                 catch (Exception)
                 {
-                    MessageBox.Show("Nastal problém při ukládání obrázku do souboru.", "Chyba!", MessageBoxButton.OK,
-                        MessageBoxImage.Error);
+                    MessageBoxDialogWindow.Show("Chyba!", "Nastal problém při ukládání obrázku do souboru.",
+                        "OK", MessageBoxDialogWindow.Icons.Error);
                     return;
                 }
             }
@@ -1409,7 +1459,7 @@ namespace ScannerClient_obalkyknih
             catch (System.Runtime.InteropServices.COMException)
             {
                 //Show error and return
-                MessageBox.Show("Nenalezen skener.", "Chyba!", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBoxDialogWindow.Show("Chyba!", "Nenalezen skener.", "OK", MessageBoxDialogWindow.Icons.Error);
                 return false;
             }
             return true;
@@ -1590,8 +1640,8 @@ namespace ScannerClient_obalkyknih
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Nastala chyba během načítání souboru. Důvod: " + ex.Message, "Chyba načítání obrázku",
-                    MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBoxDialogWindow.Show("Chyba načítání obrázku", "Nastala chyba během načítání souboru. Důvod: " + ex.Message,
+                    "OK", MessageBoxDialogWindow.Icons.Error);
                 return;
             }
 
@@ -1612,27 +1662,15 @@ namespace ScannerClient_obalkyknih
                 try
                 {
                     ImageTools.SaveToFile(this.workingImage.Value, this.imagesFilePaths[this.workingImage.Key]);
-                    //partialSW.Stop();
-                    //saveWorkingImageTime = partialSW.ElapsedMilliseconds;
-                    //partialSW.Restart();
                 }
                 catch (Exception)
                 {
-                    MessageBox.Show("Nastal problém při ukládání obrázku do souboru.", "Chyba!", MessageBoxButton.OK,
-                        MessageBoxImage.Error);
+                    MessageBoxDialogWindow.Show("Chyba!", "Nastal problém při ukládání obrázku do souboru.",
+                        "OK", MessageBoxDialogWindow.Icons.Error);
                     return;
                 }
             }
             this.workingImage = new KeyValuePair<Guid, BitmapSource>(guid, originalSizeImage);
-
-            //partialSW.Stop();
-            //long remainingTime = partialSW.ElapsedMilliseconds;
-            //partialSW.Restart();
-            //totalSW.Stop();
-            //DEBUGLOG.AppendLine("LoadExternalImage: Total time: " + totalSW.ElapsedMilliseconds + "; Preparation: " + preparationTime
-            //    + "; Load: " + loadingTime + "; Color correction: " + colorCorrectionTime
-            //    + "; Save: " + imageSaveTime + "; Thumbnail: " + thumbCreateTime + "; Remaining: " + remainingTime
-            //    + "; SaveWI: " + saveWorkingImageTime);
 
             GC.Collect();
         }
@@ -1727,8 +1765,8 @@ namespace ScannerClient_obalkyknih
                     }
                     catch (Exception)
                     {
-                        MessageBox.Show("Nastal problém při ukládání obrázku do souboru.", "Chyba!", MessageBoxButton.OK,
-                            MessageBoxImage.Error);
+                        MessageBoxDialogWindow.Show("Chyba!", "Nastal problém při ukládání obrázku do souboru.",
+                        "OK", MessageBoxDialogWindow.Icons.Error);
                         EnableImageControllers();
                         return;
                     }
@@ -2161,9 +2199,19 @@ namespace ScannerClient_obalkyknih
                 return;
             }
 
-            var result = MessageBox.Show("Opravdu chcete odstranit vybraný obsah?", "Potvrzení odstranění",
-                MessageBoxButton.YesNo, MessageBoxImage.Question);
-            if (result == MessageBoxResult.Yes)
+            bool dontShowAgain;
+            bool? result = true;
+            if (!Settings.DisableTocDeletionNotification)
+            {
+                result = MessageBoxDialogWindow.Show("Potvrzení odstranění", "Opravdu chcete odstranit vybraný obsah?",
+                    out dontShowAgain, "Příště se neptat a rovnou odstranit", "Ano", "Ne", false,
+                    MessageBoxDialogWindow.Icons.Question);
+                if (result == true && dontShowAgain)
+                {
+                    Settings.DisableTocDeletionNotification = true;
+                }
+            }
+            if (result == true)
             {
                 DisableImageControllers();
 
@@ -2194,8 +2242,8 @@ namespace ScannerClient_obalkyknih
                 }
                 catch (Exception)
                 {
-                    MessageBox.Show("Nebylo možné zmazat soubor z disku.", "Chyba mazání souboru.", MessageBoxButton.OK,
-                        MessageBoxImage.Error);
+                    MessageBoxDialogWindow.Show("Chyba mazání souboru.", "Nebylo možné zmazat soubor z disku.",
+                        "OK", MessageBoxDialogWindow.Icons.Error);
                 }
 
                 this.tocImagesList.Items.RemoveAt(selectedIndex);
@@ -2273,9 +2321,19 @@ namespace ScannerClient_obalkyknih
 
         private void CoverThumbnail_Delete(object sender, MouseButtonEventArgs e)
         {
-            var result = MessageBox.Show("Opravdu chcete odstranit vybraný obsah?", "Potvrzení odstranění",
-                MessageBoxButton.YesNo, MessageBoxImage.Question);
-            if (result == MessageBoxResult.Yes)
+            bool dontShowAgain;
+            bool? result = true;
+            if (!Settings.DisableCoverDeletionNotification)
+            {
+                result = MessageBoxDialogWindow.Show("Potvrzení odstranění", "Opravdu chcete odstranit vybranou obálku?",
+                    out dontShowAgain, "Příště se neptat a rovnou odstranit", "Ano", "Ne", false,
+                    MessageBoxDialogWindow.Icons.Question);
+                if (result == true && dontShowAgain)
+                {
+                    Settings.DisableCoverDeletionNotification = true;
+                }
+            }
+            if (result == true)
             {
                 DisableImageControllers();
 
@@ -2302,8 +2360,8 @@ namespace ScannerClient_obalkyknih
                 }
                 catch (Exception)
                 {
-                    MessageBox.Show("Nebylo možné zmazat soubor z disku.", "Chyba mazání souboru.", MessageBoxButton.OK,
-                        MessageBoxImage.Error);
+                    MessageBoxDialogWindow.Show("Chyba mazání souboru.", "Nebylo možné zmazat soubor z disku.",
+                        "OK", MessageBoxDialogWindow.Icons.Error);
                 }
 
                 this.imagesFilePaths.Remove(this.coverGuid);
@@ -2723,6 +2781,7 @@ namespace ScannerClient_obalkyknih
                 CreateIdentifierLabel("OCLC", this.oclcTextBox.Text, counter);
                 counter++;
             }
+
             if (!string.IsNullOrWhiteSpace(this.eanTextBox.Text))
             {
                 CreateIdentifierLabel("EAN", this.eanTextBox.Text, counter);

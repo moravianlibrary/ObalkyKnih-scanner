@@ -27,6 +27,7 @@ namespace ScannerClient_obalkyknih
         private BackgroundWorker updateInfoBackgroundWorker = new BackgroundWorker();
         //checks info about update and supported versions
         private UpdateChecker updateChecker = new UpdateChecker();
+        // used for differentiation between calls from Menu and automatic call after start
         private bool showIsLatestVersionPopup = false;
         //signals is this version is supported
         private bool? isAllowedVersion = null;
@@ -35,9 +36,7 @@ namespace ScannerClient_obalkyknih
         //force shutdown - do not show confirmation message
         private bool forceShutDown = false;
        
-        /// <summary>
-        /// constructor - initializes components and key bindings
-        /// </summary>
+        /// <summary>constructor - initializes components and key bindings</summary>
         public MainWindow()
         {
             InitializeComponent();
@@ -46,14 +45,17 @@ namespace ScannerClient_obalkyknih
             {
                 Directory.CreateDirectory(Settings.TemporaryFolder);
             }
+            // Migrate settings from old config file, if needed
+            OldSettings.MigrateOldSettings();
 
-            //only here are settings loaded from file
-            Settings.ReloadSettings();
+            //Show version changes
+            ShowVersionChanges();
+
             this.webClient.DownloadFileCompleted += new AsyncCompletedEventHandler(DownloadFileCompleted);
             this.webClient.DownloadProgressChanged += new DownloadProgressChangedEventHandler(DownloadProgressChanged);
             
-            this.programVersionLabel.Content = this.updateChecker.Version.Major.ToString()
-                + "." + this.updateChecker.Version.Minor.ToString();
+            this.programVersionLabel.Content = Settings.Version.Major.ToString()
+                + "." + Settings.Version.Minor.ToString();
 
             this.versionStateLabel.Content = "Získávání informací";
             this.updateInfoBackgroundWorker.RunWorkerAsync();
@@ -194,9 +196,22 @@ namespace ScannerClient_obalkyknih
 
         #region functionality
 
-        /// <summary>
-        /// Adds message to StatusBar
-        /// </summary>
+        /// <summary>Shows important new changes</summary>
+        private void ShowVersionChanges()
+        {
+            if (!Settings.Version.ToString().Equals(Settings.VersionInfo))
+            {
+                MessageBoxDialogWindow.Show("Verze 0.9", "Důležité změny ve verzi 0.9:\n"
+                    + "Nastavení byly přesunuty na nový systém, prosím zkontrolujte je.\n"
+                    + "Do nastavení byla přidána nová položka \"Báze\". Báze se připojí na začátek vlastního identifikátoru a je důležité, aby byla nastavená stejně"
+                    + " jak je nastavená v katalogu (pokud to podporuje).\n"
+                    + "Příklad: V bázi mzk01 je záznam se systémovým číslem 03000568606. V nastaveních se vloží báze mzk01, vlastní identifikátor bude pro tento záznam mzk03000568606"
+                    + " a katalog bude hledat obálku pod indetifikátorem boa001-mzk03000568606 (siglu doplní program automaticky).", "OK", MessageBoxDialogWindow.Icons.Information);
+                Settings.VersionInfo = Settings.Version..ToString();
+            }
+        }
+
+        /// <summary>Adds message to StatusBar</summary>
         /// <param name="text">Message that will be added to StatusBar</param>
         internal void AddMessageToStatusBar(string text)
         {
@@ -207,9 +222,7 @@ namespace ScannerClient_obalkyknih
             }
         }
 
-        /// <summary>
-        /// Removes message from StatusBar if it contains this message
-        /// </summary>
+        /// <summary>Removes message from StatusBar if it contains this message</summary>
         /// <param name="text">message that will be removed from StatusBar</param>
         internal void RemoveMessageFromStatusBar(string text)
         {
@@ -225,33 +238,25 @@ namespace ScannerClient_obalkyknih
             }
         }
 
-        /// <summary>
-        /// Enables Undo MenuItem
-        /// </summary>
+        /// <summary>Enables Undo MenuItem</summary>
         internal void ActivateUndo()
         {
             this.undoMenuItem.IsEnabled = true;
         }
 
-        /// <summary>
-        /// Disables Undo MenuItem
-        /// </summary>
+        /// <summary>Disables Undo MenuItem</summary>
         internal void DeactivateUndo()
         {
             this.undoMenuItem.IsEnabled = false;
         }
 
-        /// <summary>
-        /// Enables Redo MenuItem
-        /// </summary>
+        /// <summary>Enables Redo MenuItem</summary>
         internal void ActivateRedo()
         {
             this.redoMenuItem.IsEnabled = true;
         }
 
-        /// <summary>
-        /// Disables Undo MenuItem
-        /// </summary>
+        /// <summary>Disables Undo MenuItem</summary>
         internal void DeactivateRedo()
         {
             this.redoMenuItem.IsEnabled = false;
@@ -260,14 +265,18 @@ namespace ScannerClient_obalkyknih
         // Shows confirmation message and shutdown application
         private void Window_Closing(object sender, CancelEventArgs e)
         {
-            if (forceShutDown)
+            if (forceShutDown || Settings.DisableClosingConfirmation)
             {
                 return;
             }
-
-            if (MessageBox.Show("Opravdu chcete ukončit program?",
-                "Potvrzení", MessageBoxButton.YesNo) == MessageBoxResult.Yes)
+            bool dontAskAgain;
+            if (MessageBoxDialogWindow.Show("Potvrzení", "Opravdu chcete ukončit program?",
+                out dontAskAgain, "Příště se neptat a zavřít", "Ano", "Ne", true, MessageBoxDialogWindow.Icons.Question) == true)
             {
+                if (dontAskAgain)
+                {
+                    Settings.DisableClosingConfirmation = true;
+                }
                 Application.Current.Shutdown();
             }
             else
@@ -284,7 +293,8 @@ namespace ScannerClient_obalkyknih
                 foreach (string fileName in Directory.GetFiles(Settings.TemporaryFolder))
                 {
                     // remove all previous image files
-                    if (fileName.EndsWith(".tif") || fileName.EndsWith(".bmp"))
+                    if (fileName.EndsWith(".tif") || fileName.EndsWith(".bmp")
+                        || fileName.Equals("obalkyknih-scanner_setup.exe"))
                     {
                         File.Delete(fileName);
                     }
@@ -295,16 +305,28 @@ namespace ScannerClient_obalkyknih
 
             if (isAllowedVersion == null)
             {
-                MessageBox.Show("Kontrola verze zatím neskončila, počkejte prosím.", "Kontrola verze", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBoxDialogWindow.Show("Kontrola verze", "Kontrola verze zatím neskončila, počkejte prosím.",
+                    "OK", MessageBoxDialogWindow.Icons.Error);
             }
             else if (isAllowedVersion == true)
             {
-                Window newWindow = new CreateNewUnitWindow(this.dockPanel);
-                newWindow.ShowDialog();
+                if (!Settings.ForceUpdate)
+                {
+                    Window newWindow = new CreateNewUnitWindow(this.dockPanel);
+                    newWindow.ShowDialog();
+                }
+                else
+                {
+                    MessageBoxDialogWindow.Show("Zastaralá verze",
+                        "Tato verze programu není aktuální a administrátor vynutil používání jenom aktuální verze."
+                        + "Prosím nainstalujte aktualizaci.", "OK", MessageBoxDialogWindow.Icons.Error);
+                }
             }
             else
             {
-                MessageBox.Show("Tato verze programu není podporována, prosím nainstalujte aktualizaci.", "Nepodporovaná verze", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBoxDialogWindow.Show("Nepodporovaná verze",
+                    "Tato verze programu není podporována, prosím nainstalujte aktualizaci.",
+                    "OK", MessageBoxDialogWindow.Icons.Error);
             }
         }
 
@@ -322,10 +344,11 @@ namespace ScannerClient_obalkyknih
         {
             if (this.updateDownloadProgressBar.Value == 100)
             {
-                var result = MessageBox.Show("Aktualizace byla stažena, přejete si nyní ukončit program a aktualizovat?",
-                "Aktualizace stažena", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                var result = MessageBoxDialogWindow.Show("Aktualizace stažena",
+                    "Aktualizace byla stažena, přejete si nyní ukončit program a aktualizovat?",
+                    "Yes", "No", true, MessageBoxDialogWindow.Icons.Question);
 
-                if (result == MessageBoxResult.Yes)
+                if (result == true)
                 {
                     try
                     {
@@ -341,14 +364,15 @@ namespace ScannerClient_obalkyknih
                     }
                     catch (Exception)
                     {
-                        MessageBox.Show("Nepodařilo se spustit aktualizaci, ukončete program a spusťte ji ručně.",
-                            "Aktualizace stažena", MessageBoxButton.YesNo, MessageBoxImage.Information);
+                        MessageBoxDialogWindow.Show("Aktualizace stažena",
+                            "Nepodařilo se spustit aktualizaci, ukončete program a spusťte ji ručně.",
+                            "OK", MessageBoxDialogWindow.Icons.Error);
                     }
                 }
             }
             else
             {
-                MessageBox.Show("Aktualizace zatím nebyla stažena.", "Stahování nekompletní", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                MessageBoxDialogWindow.Show("Stahování nekompletní", "Aktualizace zatím nebyla stažena.", "OK", MessageBoxDialogWindow.Icons.Information);
             }
         }
 
@@ -377,14 +401,16 @@ namespace ScannerClient_obalkyknih
                 this.versionStateLabel.Content = "";
                 if (e.Error.InnerException is FormatException)
                 {
-                    MessageBox.Show("Informace o aktualizaci mají nesprávný formát. Kontaktujte prosím administrátory servru obalkyknih.cz.",
-                        "Chybné informace o aktualizaci", MessageBoxButton.OK, MessageBoxImage.Error);
+                    MessageBoxDialogWindow.Show("Chybné informace o aktualizaci",
+                        "Informace o aktualizaci mají nesprávný formát. Kontaktujte prosím administrátory servru obalkyknih.cz.",
+                        "OK", MessageBoxDialogWindow.Icons.Error);
                 }
                 else
                 {
-                    var result = MessageBox.Show("Při stahování informací o aktualizaci se vyskytla chyba. Chcete to zkusit znovu?",
-                        "Chyba stahování informací o aktualizaci", MessageBoxButton.YesNo, MessageBoxImage.Error);
-                    if (result == MessageBoxResult.Yes)
+                    var result = MessageBoxDialogWindow.Show("Chyba stahování informací o aktualizaci",
+                        "Při stahování informací o aktualizaci se vyskytla chyba. Po stisknutí OK se zahájí další pokus.",
+                        "OK", MessageBoxDialogWindow.Icons.Error);
+                    if (result == true)
                     {
                         updateInfoBackgroundWorker.RunWorkerAsync();
                     }
@@ -404,12 +430,32 @@ namespace ScannerClient_obalkyknih
                     this.programSupportLabel.Foreground = Brushes.Red;
                     this.programSupportLabel.Content = "Nepodporováno";
                     isAllowedVersion = false;
-                    this.downloadUpdateButton.Visibility = Visibility.Visible;
-                    var result = MessageBox.Show("Vaše verze programu je v seznamu nepodporovaných verzí a nelze s ní pracovat, musíte stáhnout aktualizaci. Chcete ji stáhnout nyní?",
-                            "Nepodporovaná verze", MessageBoxButton.YesNo, MessageBoxImage.Error);
-                    if (result == MessageBoxResult.Yes)
+                    this.downloadUpdateButton.Visibility = Settings.DisableUpdate ? Visibility.Hidden : Visibility.Visible;
+                    if (Settings.DisableUpdate)
                     {
-                        DownloadUpdateFile();
+                        MessageBoxDialogWindow.Show("Nepodporovaná verze",
+                            "Vaše verze programu je v seznamu nepodporovaných verzí a nelze s ní pracovat."
+                            + "Požádejte administrátora o instalaci nové verze.",
+                            "OK", MessageBoxDialogWindow.Icons.Error);
+                    }
+                    else
+                    {
+                        bool dontShowAgain = false;
+                        bool? result = true;
+                        if (!Settings.AlwaysDownloadUpdates)
+                        {
+                            result = MessageBoxDialogWindow.Show("Nepodporovaná verze",
+                                "Vaše verze programu je v seznamu nepodporovaných verzí a nelze s ní pracovat, musíte stáhnout aktualizaci. Chcete ji stáhnout nyní?",
+                                out dontShowAgain, "Příště se neptat a stáhnout", "Ano", "Ne", true, MessageBoxDialogWindow.Icons.Warning);
+                        }
+                        if (result == true)
+                        {
+                            if(dontShowAgain)
+                            {
+                                Settings.AlwaysDownloadUpdates = true;
+                            }
+                            DownloadUpdateFile();
+                        }
                     }
                 }
                 else
@@ -420,12 +466,24 @@ namespace ScannerClient_obalkyknih
                     {
                         this.versionStateImage.Visibility = Visibility.Visible;
                         this.versionStateLabel.Content = "Verze není aktuální";
-                        this.downloadUpdateButton.Visibility = Visibility.Visible;
-                        var result = MessageBox.Show("Aktualizace je k dispozici, chcete ji stáhnout?",
-                            "Aktualizace", MessageBoxButton.YesNo, MessageBoxImage.Error);
-                        if (result == MessageBoxResult.Yes)
+                        this.downloadUpdateButton.Visibility = Settings.DisableUpdate ? Visibility.Hidden : Visibility.Visible;
+                        if (!Settings.DisableUpdate && (!Settings.NeverDownloadUpdates || showIsLatestVersionPopup))
                         {
-                            DownloadUpdateFile();
+                            bool dontShowAgain;
+                            var result = MessageBoxDialogWindow.Show("Aktualizace", "Aktualizace je k dispozici, chcete ji stáhnout?",
+                                out dontShowAgain, "Příště se neptat a použít tuto volbu", "Ano", "Ne", true, MessageBoxDialogWindow.Icons.Question);
+                            if (result == true)
+                            {
+                                if (dontShowAgain)
+                                {
+                                    Settings.AlwaysDownloadUpdates = true;
+                                }
+                                DownloadUpdateFile();
+                            }
+                            else if (dontShowAgain)
+                            {
+                                Settings.NeverDownloadUpdates = true;
+                            }
                         }
                     }
                     else
@@ -434,8 +492,8 @@ namespace ScannerClient_obalkyknih
                         this.downloadUpdateButton.Visibility = Visibility.Hidden;
                         if (this.showIsLatestVersionPopup)
                         {
-                            MessageBox.Show("Verze je aktuální",
-                                "Aktualizace", MessageBoxButton.OK, MessageBoxImage.Information);
+                            MessageBoxDialogWindow.Show("Aktualizace", "Verze je aktuální",
+                                "OK", MessageBoxDialogWindow.Icons.Information);
                         }
                     }
                 }
@@ -473,15 +531,16 @@ namespace ScannerClient_obalkyknih
             this.downloadUpdateButton.IsEnabled = true;
             if (e.Error != null)
             {
-                MessageBox.Show("Počas stahování aktualizace došlo k chybě. Zkuste spustit stahování znovu.",
-                    "Chyba při stahování aktualizace", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBoxDialogWindow.Show("Chyba při stahování aktualizace",
+                    "Počas stahování aktualizace došlo k chybě. Zkuste spustit stahování znovu.",
+                    "OK", MessageBoxDialogWindow.Icons.Error);
                 this.updateDownloadTextBox.Visibility = Visibility.Collapsed;
                 this.updateDownloadProgressBar.Visibility = Visibility.Collapsed;
             }
             else if (e.Cancelled)
             {
-                MessageBox.Show("Stahování bylo přerušeno.",
-                    "Stahování přerušeno", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBoxDialogWindow.Show("Stahování přerušeno", "Stahování bylo přerušeno.",
+                    "OK", MessageBoxDialogWindow.Icons.Warning);
                 this.updateDownloadTextBox.Visibility = Visibility.Collapsed;
                 this.updateDownloadProgressBar.Visibility = Visibility.Collapsed;
             }
@@ -501,8 +560,9 @@ namespace ScannerClient_obalkyknih
                     if (!this.updateChecker.Checksum.ToLower().Equals(checksum.ToLower()))
                     {
                         File.Delete(this.updateChecker.FilePath);
-                        MessageBox.Show("Kontrolní součet stažené aktualizace se nezhoduje, soubor byl zmazán, stáhněte aktualizaci znovu.",
-                        "Aktualizace poškozena", MessageBoxButton.OK, MessageBoxImage.Error);
+                        MessageBoxDialogWindow.Show("Aktualizace poškozena",
+                            "Kontrolní součet stažené aktualizace se nezhoduje, soubor byl zmazán, stáhněte aktualizaci znovu.",
+                            "OK", MessageBoxDialogWindow.Icons.Error);
                         this.updateDownloadProgressBar.Value = 0;
                         this.updateDownloadProgressBar.Visibility = Visibility.Collapsed;
                         this.updateDownloadTextBox.Visibility = Visibility.Collapsed;
@@ -511,8 +571,9 @@ namespace ScannerClient_obalkyknih
                 }
                 catch (Exception)
                 {
-                    MessageBox.Show("Při kontrole integrity aktualizace došlo k chybě, stáhněte aktualizaci znovu.",
-                        "Chyba kontroly aktualizace", MessageBoxButton.OK, MessageBoxImage.Error);
+                    MessageBoxDialogWindow.Show("Chyba kontroly aktualizace",
+                        "Při kontrole integrity aktualizace došlo k chybě, stáhněte aktualizaci znovu.",
+                        "OK", MessageBoxDialogWindow.Icons.Error);
                     this.updateDownloadProgressBar.Value = 0;
                     this.updateDownloadProgressBar.Visibility = Visibility.Collapsed;
                     this.updateDownloadTextBox.Visibility = Visibility.Collapsed;
