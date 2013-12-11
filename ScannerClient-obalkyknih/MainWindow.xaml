@@ -79,11 +79,11 @@
 
                 <Label Content="Vaše současná verze:" Foreground="#4C4B49" FontFamily="Arial" VerticalAlignment="Top"
                        HorizontalAlignment="Left" Margin="40,200,0,0"/>
-                <Label Content="1.0" HorizontalAlignment="Left" Name="programVersionLabel" VerticalAlignment="Top"
-                       Margin="180,200,94,0" Height="26" Foreground="#4C4B49" FontFamily="Arial" />
+                <Label HorizontalAlignment="Left" Name="programVersionLabel" VerticalAlignment="Top"
+                       Margin="180,200,94,0" Height="26" Width="50" Foreground="#4C4B49" FontFamily="Arial" />
                 <Label Content="Podpora:" Foreground="#4C4B49" FontFamily="Arial" VerticalAlignment="Top"
                    HorizontalAlignment="Left" Margin="40,220,0,0" />
-                <Label Content="Podporováno" HorizontalAlignment="Left" Name="programSupportLabel" VerticalAlignment="Top" 
+                <Label HorizontalAlignment="Left" Name="programSupportLabel" VerticalAlignment="Top"
                        Margin="180,220,0,0" Height="24" Width="89" Foreground="#4C4B49" FontFamily="Arial" />
                 <Label Content="Verze není aktuální" HorizontalAlignment="Left" Margin="40,250,0,0" Name="versionStateLabel"
                        VerticalAlignment="Top" Foreground="#4C4B49" FontFamily="Arial"/>

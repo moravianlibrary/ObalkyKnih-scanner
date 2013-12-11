@@ -584,9 +584,10 @@ namespace ScannerClient_obalkyknih
 
             //parse ean
             string ean = "";
+
             var eanFields = from varfield in document.Descendants("varfield")
-                               where Settings.MetadataEanField.Item1.Equals(varfield.Attribute("id").Value)
-                               && Settings.MetadataEanField.Item3.Equals(varfield.Attribute("i1").Value)
+                               where Settings.MetadataEanField.Item1.ToString().PadLeft(3, '0').Equals(varfield.Attribute("id").Value)
+                               && Settings.MetadataEanField.Item3.ToString().Equals(varfield.Attribute("i1").Value)
                                select varfield;
             foreach (var eanField in eanFields)
             {
@@ -594,7 +595,7 @@ namespace ScannerClient_obalkyknih
                                                   where Settings.MetadataEanField.Item2.ToString().Equals(sf.Attribute("label").Value)
                                                   select sf.Value;
                 ean +=  "|" + string.Join("|", subfields);
-                ean.Trim(new char[] { ' ', '/', '|' });
+                ean = ean.Trim(new char[] { ' ', '/', '|' });
             }
             metadata.EAN = ean;
             if (metadata.EAN.Contains('|'))

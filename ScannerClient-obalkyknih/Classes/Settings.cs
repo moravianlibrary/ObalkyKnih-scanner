@@ -679,11 +679,11 @@ namespace ScannerClient_obalkyknih
         }
 
         /// <summary>EAN field in Marc21 (field, subfield, ind1, ind2)</summary>
-        internal static Tuple<int, char, int?, int?> MetadataEanField
+        internal static Tuple<int, char, char?, char?> MetadataEanField
         {
             get
             {
-                return new Tuple<int, char, int?, int?>(24, 'a', 3, null);
+                return new Tuple<int, char, char?, char?>(24, 'a', '3', null);
             }
         }
 

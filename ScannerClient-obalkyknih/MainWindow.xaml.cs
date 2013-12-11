@@ -201,13 +201,9 @@ namespace ScannerClient_obalkyknih
         {
             if (!Settings.Version.ToString().Equals(Settings.VersionInfo))
             {
-                MessageBoxDialogWindow.Show("Verze 0.9", "Důležité změny ve verzi 0.9:\n"
-                    + "Nastavení byly přesunuty na nový systém, prosím zkontrolujte je.\n"
-                    + "Do nastavení byla přidána nová položka \"Báze\". Báze se připojí na začátek vlastního identifikátoru a je důležité, aby byla nastavená stejně"
-                    + " jak je nastavená v katalogu (pokud to podporuje).\n"
-                    + "Příklad: V bázi mzk01 je záznam se systémovým číslem 03000568606. V nastaveních se vloží báze mzk01, vlastní identifikátor bude pro tento záznam mzk03000568606"
-                    + " a katalog bude hledat obálku pod indetifikátorem boa001-mzk03000568606 (siglu doplní program automaticky).", "OK", MessageBoxDialogWindow.Icons.Information);
-                Settings.VersionInfo = Settings.Version..ToString();
+                MessageBoxDialogWindow.Show("Verze 0.10", "Změny ve verzi 0.10:\n"
+                    + "Opraveno stahování EAN kódu z katalogu.", "OK", MessageBoxDialogWindow.Icons.Information);
+                Settings.VersionInfo = Settings.Version.ToString();
             }
         }
 
